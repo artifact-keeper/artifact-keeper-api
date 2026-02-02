@@ -1,0 +1,79 @@
+name: Generate SDKs
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    name: Generate & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install tools
+        run: |
+          npm install -g @stoplight/spectral-cli @redocly/cli
+          npm install -g @hey-api/openapi-ts
+
+      - name: Validate spec
+        run: spectral lint openapi.yaml --fail-severity warn
+
+      - name: Generate TypeScript client
+        run: |
+          mkdir -p generated/typescript
+          npx @hey-api/openapi-ts \
+            -i openapi.yaml \
+            -o generated/typescript \
+            -c @hey-api/client-fetch
+          cd generated/typescript && zip -r ../../artifact-keeper-ts-${{ github.ref_name }}.zip .
+
+      - name: Generate Rust client
+        uses: docker://openapitools/openapi-generator-cli:v7.12.0
+        with:
+          args: >-
+            generate
+            -i openapi.yaml
+            -g rust
+            -o generated/rust
+            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ github.ref_name }}
+
+      - name: Package Rust client
+        run: cd generated/rust && zip -r ../../artifact-keeper-rust-${{ github.ref_name }}.zip .
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            openapi.yaml
+            artifact-keeper-ts-${{ github.ref_name }}.zip
+            artifact-keeper-rust-${{ github.ref_name }}.zip
+          body: |
+            ## Artifact Keeper API ${{ github.ref_name }}
+
+            ### Downloads
+            - **openapi.yaml** - OpenAPI 3.1 specification
+            - **artifact-keeper-ts-${{ github.ref_name }}.zip** - TypeScript client (fetch-based)
+            - **artifact-keeper-rust-${{ github.ref_name }}.zip** - Rust client
+
+            ### Usage
+
+            **TypeScript:**
+            ```typescript
+            import { client } from './generated';
+            client.setConfig({ baseUrl: 'https://your-registry.example.com' });
+            ```
+
+            **Rust:**
+            ```toml
+            [dependencies]
+            artifact-keeper-client = { path = "./generated/rust" }
+            ```
