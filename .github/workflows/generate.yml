@@ -212,32 +212,6 @@ jobs:
         working-directory: sdk/swift
         run: swift build
 
-      - name: Publish to SPM repo
-        if: ${{ !inputs.dry_run }}
-        env:
-          SWIFT_SDK_TOKEN: ${{ secrets.SWIFT_SDK_TOKEN }}
-        run: |
-          TAG="${{ github.ref_name }}"
-          REMOTE="https://x-access-token:${SWIFT_SDK_TOKEN}@github.com/artifact-keeper/artifact-keeper-swift-sdk.git"
-
-          # Init a fresh repo with the SDK contents
-          mkdir spm-repo && cd spm-repo
-          git init
-          git remote add origin "$REMOTE"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Copy SDK contents
-          cp -r ../sdk/swift/Package.swift .
-          cp -r ../sdk/swift/Sources .
-
-          # Commit, tag, and push
-          git add -A
-          git commit -m "Release ${TAG}"
-          git tag "$TAG"
-          git push origin HEAD:main --force
-          git push origin "$TAG" --force
-
       - name: Package artifact
         run: |
           cd sdk/swift
@@ -415,9 +389,9 @@ jobs:
             artifact-keeper-client = "${{ needs.version.outputs.version }}"
             ```
 
-            **Swift** (SPM):
+            **Swift** (SPM — download zip, add as local package):
             ```swift
-            .package(url: "https://github.com/artifact-keeper/artifact-keeper-swift-sdk.git", from: "${{ needs.version.outputs.version }}")
+            .package(path: "./artifact-keeper-swift")
             ```
 
             ### Release artifacts
