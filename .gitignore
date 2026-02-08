@@ -2,3 +2,14 @@ node_modules/
 generated/
 .DS_Store
 *.swp
+*.zip
+*.log
+
+# SDK generated output (never checked in)
+sdk/typescript/src/
+sdk/typescript/dist/
+sdk/kotlin/generated/
+sdk/swift/.build/
+sdk/swift/.swiftpm/
+sdk/swift/Package.resolved
+sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml

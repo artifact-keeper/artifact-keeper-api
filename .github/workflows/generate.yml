@@ -1,15 +1,26 @@
-name: Generate SDKs
+name: Generate & Publish SDKs
 
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Generate without publishing (dry run)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
+  packages: write
+
+env:
+  OPENAPI_GENERATOR_VERSION: v7.12.0
 
 jobs:
-  generate:
-    name: Generate & Release
+  # ─── Stage 1: Validate ───────────────────────────────────────────────
+  validate:
+    name: Validate OpenAPI spec
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -18,24 +29,165 @@ jobs:
         with:
           node-version: "20"
 
-      - name: Install tools
-        run: |
-          npm install -g @stoplight/spectral-cli @redocly/cli
-          npm install -g @hey-api/openapi-ts
+      - name: Install linters
+        run: npm install -g @stoplight/spectral-cli @redocly/cli
 
-      - name: Validate spec
+      - name: Spectral lint
         run: spectral lint openapi.yaml --fail-severity warn
 
-      - name: Generate TypeScript client
-        run: |
-          mkdir -p generated/typescript
-          npx @hey-api/openapi-ts \
-            -i openapi.yaml \
-            -o generated/typescript \
-            -c @hey-api/client-fetch
-          cd generated/typescript && zip -r ../../artifact-keeper-ts-${{ github.ref_name }}.zip .
+      - name: Redocly lint
+        run: redocly lint openapi.yaml
 
-      - name: Generate Rust client
+      - name: Verify bundleable
+        run: redocly bundle openapi.yaml -o /tmp/bundled.yaml
+
+  # ─── Stage 2: Generate all SDKs in parallel ──────────────────────────
+  generate-typescript:
+    name: Generate TypeScript SDK
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          registry-url: "https://npm.pkg.github.com"
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: npm install
+
+      - name: Generate SDK
+        working-directory: sdk/typescript
+        run: npx openapi-ts
+
+      - name: Set package version
+        working-directory: sdk/typescript
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
+
+      - name: Publish to GitHub Packages
+        if: ${{ !inputs.dry_run }}
+        working-directory: sdk/typescript
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Package artifact
+        run: |
+          cd sdk/typescript
+          zip -r "$GITHUB_WORKSPACE/artifact-keeper-ts-${{ github.ref_name }}.zip" \
+            src/ package.json tsconfig.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-typescript
+          path: artifact-keeper-ts-${{ github.ref_name }}.zip
+
+  generate-kotlin:
+    name: Generate Kotlin SDK
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SDK
+        uses: docker://openapitools/openapi-generator-cli:v7.12.0
+        with:
+          args: generate -c /github/workspace/sdk/kotlin/openapi-generator-config.yaml
+
+      - name: Inject GitHub Packages publishing
+        working-directory: sdk/kotlin/generated
+        run: |
+          cat >> build.gradle <<'GRADLE'
+
+          apply plugin: 'maven-publish'
+
+          publishing {
+              publications {
+                  maven(MavenPublication) {
+                      groupId = 'com.artifactkeeper'
+                      artifactId = 'client'
+                      version = System.getenv('SDK_VERSION') ?: project.version
+                      from components.java
+                  }
+              }
+              repositories {
+                  maven {
+                      name = "GitHubPackages"
+                      url = uri("https://maven.pkg.github.com/artifact-keeper/artifact-keeper-api")
+                      credentials {
+                          username = System.getenv("GITHUB_ACTOR") ?: ""
+                          password = System.getenv("GITHUB_TOKEN") ?: ""
+                      }
+                  }
+              }
+          }
+          GRADLE
+
+      - name: Build and publish to GitHub Packages
+        if: ${{ !inputs.dry_run }}
+        working-directory: sdk/kotlin/generated
+        run: ./gradlew build publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SDK_VERSION: ${{ steps.version.outputs.version }}
+
+      - name: Package artifact
+        run: cd sdk/kotlin/generated && zip -r "$GITHUB_WORKSPACE/artifact-keeper-kotlin-${{ github.ref_name }}.zip" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-kotlin
+          path: artifact-keeper-kotlin-${{ github.ref_name }}.zip
+
+  generate-swift:
+    name: Generate Swift SDK
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare Swift package
+        run: |
+          cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
+
+      - name: Package artifact
+        run: |
+          cd sdk/swift
+          zip -r "$GITHUB_WORKSPACE/artifact-keeper-swift-${{ github.ref_name }}.zip" \
+            Package.swift Sources/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-swift
+          path: artifact-keeper-swift-${{ github.ref_name }}.zip
+
+  generate-rust:
+    name: Generate Rust SDK
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SDK
         uses: docker://openapitools/openapi-generator-cli:v7.12.0
         with:
           args: >-
@@ -43,37 +195,75 @@ jobs:
             -i openapi.yaml
             -g rust
             -o generated/rust
-            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ github.ref_name }}
+            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }}
 
-      - name: Package Rust client
-        run: cd generated/rust && zip -r ../../artifact-keeper-rust-${{ github.ref_name }}.zip .
+      - name: Package artifact
+        run: cd generated/rust && zip -r "$GITHUB_WORKSPACE/artifact-keeper-rust-${{ github.ref_name }}.zip" .
 
-      - name: Create GitHub Release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-rust
+          path: artifact-keeper-rust-${{ github.ref_name }}.zip
+
+  # ─── Stage 3: Create GitHub Release ──────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [generate-typescript, generate-kotlin, generate-swift, generate-rust]
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
             openapi.yaml
-            artifact-keeper-ts-${{ github.ref_name }}.zip
-            artifact-keeper-rust-${{ github.ref_name }}.zip
+            artifacts/artifact-keeper-ts-${{ github.ref_name }}.zip
+            artifacts/artifact-keeper-kotlin-${{ github.ref_name }}.zip
+            artifacts/artifact-keeper-swift-${{ github.ref_name }}.zip
+            artifacts/artifact-keeper-rust-${{ github.ref_name }}.zip
           body: |
             ## Artifact Keeper API ${{ github.ref_name }}
 
-            ### Downloads
-            - **openapi.yaml** - OpenAPI 3.1 specification
-            - **artifact-keeper-ts-${{ github.ref_name }}.zip** - TypeScript client (fetch-based)
-            - **artifact-keeper-rust-${{ github.ref_name }}.zip** - Rust client
+            ### Install from GitHub Packages
 
-            ### Usage
-
-            **TypeScript:**
-            ```typescript
-            import { client } from './generated';
-            client.setConfig({ baseUrl: 'https://your-registry.example.com' });
+            **TypeScript** (npm):
+            ```
+            npm install @artifact-keeper/sdk@${{ steps.version.outputs.version }} --registry=https://npm.pkg.github.com
             ```
 
-            **Rust:**
-            ```toml
-            [dependencies]
-            artifact-keeper-client = { path = "./generated/rust" }
+            **Kotlin** (Gradle):
+            ```kotlin
+            repositories {
+                maven { url = uri("https://maven.pkg.github.com/artifact-keeper/artifact-keeper-api") }
+            }
+            dependencies {
+                implementation("com.artifactkeeper:client:${{ steps.version.outputs.version }}")
+            }
             ```
+
+            **Swift** (SPM — uses build plugin, no pre-built package):
+            Download `artifact-keeper-swift-${{ github.ref_name }}.zip`, unzip into your project, and add as a local SPM package.
+
+            **Rust** (Cargo):
+            Download `artifact-keeper-rust-${{ github.ref_name }}.zip` and add as a path dependency.
+
+            ### Release artifacts
+            | File | Description |
+            |------|-------------|
+            | `openapi.yaml` | OpenAPI 3.1 spec (288 operations, 27 tags) |
+            | `artifact-keeper-ts-*.zip` | TypeScript client (fetch) |
+            | `artifact-keeper-kotlin-*.zip` | Kotlin client (Retrofit + kotlinx.serialization) |
+            | `artifact-keeper-swift-*.zip` | Swift SPM package (URLSession) |
+            | `artifact-keeper-rust-*.zip` | Rust client |
