@@ -1,0 +1,13 @@
+generatorName: kotlin
+inputSpec: /github/workspace/openapi.yaml
+outputDir: /github/workspace/sdk/kotlin/generated
+additionalProperties:
+  groupId: com.artifactkeeper
+  artifactId: client
+  packageName: com.artifactkeeper.client
+  library: jvm-retrofit2
+  serializationLibrary: kotlinx_serialization
+  useCoroutines: "true"
+  dateLibrary: java8
+  enumPropertyNaming: UPPERCASE
+  sourceFolder: src/main/kotlin
