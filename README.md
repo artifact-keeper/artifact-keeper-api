@@ -4,7 +4,7 @@ OpenAPI 3.1 specification for the Artifact Keeper management REST API.
 
 ## What's included
 
-- **`openapi.yaml`** — Single-file OpenAPI 3.1 spec covering 165 operations across 19 endpoint groups
+- **`openapi.yaml`** — Single-file OpenAPI 3.1 spec covering 288 operations across 27 endpoint groups
 - **CI validation** — Spectral + Redocly linting on every push/PR
 - **SDK generation** — TypeScript and Rust clients auto-generated on release tags
 
@@ -31,6 +31,14 @@ OpenAPI 3.1 specification for the Artifact Keeper management REST API.
 | Builds | Build information tracking |
 | Packages | Package-level views across versions |
 | Tree | Repository file tree browsing |
+| SBOM | Software Bill of Materials and license compliance |
+| Dependency Track | Dependency-Track vulnerability management |
+| Analytics | Storage analytics and usage metrics |
+| Monitoring | Service health monitoring and alerting |
+| Telemetry | Crash reporting and telemetry settings |
+| Lifecycle | Artifact retention and cleanup policies |
+| SSO Admin | SSO provider configuration (OIDC, LDAP, SAML) |
+| SSO | SSO authentication flows |
 
 ## Scope
 
