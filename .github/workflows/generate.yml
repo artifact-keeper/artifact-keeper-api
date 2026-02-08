@@ -212,6 +212,24 @@ jobs:
         working-directory: sdk/swift
         run: swift build
 
+      - name: Push to SPM repo
+        if: ${{ !inputs.dry_run }}
+        run: |
+          VERSION="${{ needs.version.outputs.version }}"
+          git clone "https://x-access-token:${{ secrets.SWIFT_SDK_TOKEN }}@github.com/artifact-keeper/artifact-keeper-swift-sdk.git" /tmp/swift-sdk
+          # Clear old contents (keep .git)
+          find /tmp/swift-sdk -maxdepth 1 ! -name '.git' ! -path /tmp/swift-sdk -exec rm -rf {} +
+          # Copy Package.swift and Sources/
+          cp sdk/swift/Package.swift /tmp/swift-sdk/
+          cp -R sdk/swift/Sources /tmp/swift-sdk/
+          cd /tmp/swift-sdk
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Update Swift SDK to ${VERSION}" || echo "No changes to commit"
+          git tag "v${VERSION}"
+          git push origin main --tags
+
       - name: Package artifact
         run: |
           cd sdk/swift
@@ -389,9 +407,9 @@ jobs:
             artifact-keeper-client = "${{ needs.version.outputs.version }}"
             ```
 
-            **Swift** (SPM — download zip, add as local package):
+            **Swift** (SPM):
             ```swift
-            .package(path: "./artifact-keeper-swift")
+            .package(url: "https://github.com/artifact-keeper/artifact-keeper-swift-sdk.git", from: "${{ needs.version.outputs.version }}")
             ```
 
             ### Release artifacts
