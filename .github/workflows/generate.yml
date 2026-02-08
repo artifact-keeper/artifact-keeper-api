@@ -66,6 +66,10 @@ jobs:
         working-directory: sdk/typescript
         run: npx openapi-ts
 
+      - name: Type-check generated code
+        working-directory: sdk/typescript
+        run: npx tsc --noEmit
+
       - name: Set package version
         working-directory: sdk/typescript
         run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
@@ -108,6 +112,9 @@ jobs:
         uses: docker://openapitools/openapi-generator-cli:v7.12.0
         with:
           args: generate -c /github/workspace/sdk/kotlin/openapi-generator-config.yaml
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER" sdk/kotlin/generated && chmod +x sdk/kotlin/generated/gradlew
 
       - name: Inject GitHub Packages publishing
         working-directory: sdk/kotlin/generated
@@ -157,13 +164,20 @@ jobs:
   generate-swift:
     name: Generate Swift SDK
     needs: validate
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
-      - name: Prepare Swift package
-        run: |
-          cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
+      - name: Copy spec into package
+        run: cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
+
+      - name: Resolve dependencies
+        working-directory: sdk/swift
+        run: swift package resolve
+
+      - name: Build package
+        working-directory: sdk/swift
+        run: swift build
 
       - name: Package artifact
         run: |
@@ -195,7 +209,17 @@ jobs:
             -i openapi.yaml
             -g rust
             -o generated/rust
-            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }}
+            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }},library=reqwest,supportMultipart=true
+            --type-mappings=file=Vec<u8>
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER" generated/rust
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build generated code
+        working-directory: generated/rust
+        run: cargo check
 
       - name: Package artifact
         run: cd generated/rust && zip -r "$GITHUB_WORKSPACE/artifact-keeper-rust-${{ github.ref_name }}.zip" .
@@ -262,7 +286,7 @@ jobs:
             ### Release artifacts
             | File | Description |
             |------|-------------|
-            | `openapi.yaml` | OpenAPI 3.1 spec (288 operations, 27 tags) |
+            | `openapi.yaml` | OpenAPI 3.1 spec |
             | `artifact-keeper-ts-*.zip` | TypeScript client (fetch) |
             | `artifact-keeper-kotlin-*.zip` | Kotlin client (Retrofit + kotlinx.serialization) |
             | `artifact-keeper-swift-*.zip` | Swift SPM package (URLSession) |
