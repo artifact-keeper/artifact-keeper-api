@@ -113,6 +113,9 @@ jobs:
         with:
           args: generate -c /github/workspace/sdk/kotlin/openapi-generator-config.yaml
 
+      - name: Fix permissions
+        run: sudo chown -R "$USER" sdk/kotlin/generated && chmod +x sdk/kotlin/generated/gradlew
+
       - name: Inject GitHub Packages publishing
         working-directory: sdk/kotlin/generated
         run: |
@@ -207,6 +210,9 @@ jobs:
             -g rust
             -o generated/rust
             --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }}
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER" generated/rust
 
       - uses: dtolnay/rust-toolchain@stable
 

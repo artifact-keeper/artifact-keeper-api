@@ -70,9 +70,12 @@ jobs:
         with:
           args: generate -c /github/workspace/sdk/kotlin/openapi-generator-config.yaml
 
+      - name: Fix permissions
+        run: sudo chown -R "$USER" sdk/kotlin/generated
+
       - name: Build generated code
         working-directory: sdk/kotlin/generated
-        run: ./gradlew build -x test
+        run: chmod +x gradlew && ./gradlew build -x test
 
   build-swift:
     name: Build Swift SDK
@@ -108,6 +111,9 @@ jobs:
             -g rust
             -o generated/rust
             --additional-properties=packageName=artifact-keeper-client,packageVersion=0.0.0
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER" generated/rust
 
       - uses: dtolnay/rust-toolchain@stable
 
