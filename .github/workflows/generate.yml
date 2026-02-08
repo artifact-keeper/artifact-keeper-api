@@ -214,9 +214,17 @@ jobs:
 
       - name: Push to SPM repo
         if: ${{ !inputs.dry_run }}
+        env:
+          DEPLOY_KEY: ${{ secrets.SWIFT_SDK_DEPLOY_KEY }}
         run: |
           VERSION="${{ needs.version.outputs.version }}"
-          git clone "https://x-access-token:${{ secrets.SWIFT_SDK_TOKEN }}@github.com/artifact-keeper/artifact-keeper-swift-sdk.git" /tmp/swift-sdk
+          # Set up SSH deploy key
+          mkdir -p ~/.ssh
+          echo "$DEPLOY_KEY" > ~/.ssh/swift-sdk-deploy
+          chmod 600 ~/.ssh/swift-sdk-deploy
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i ~/.ssh/swift-sdk-deploy -o IdentitiesOnly=yes"
+          git clone git@github.com:artifact-keeper/artifact-keeper-swift-sdk.git /tmp/swift-sdk
           # Clear old contents (keep .git)
           find /tmp/swift-sdk -maxdepth 1 ! -name '.git' ! -path /tmp/swift-sdk -exec rm -rf {} +
           # Copy package contents + CI + metadata
@@ -232,6 +240,8 @@ jobs:
           git commit -m "Update Swift SDK to ${VERSION}" || echo "No changes to commit"
           git tag "v${VERSION}"
           git push origin main --tags
+          # Clean up key
+          rm -f ~/.ssh/swift-sdk-deploy
 
       - name: Package artifact
         run: |
