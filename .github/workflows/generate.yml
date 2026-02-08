@@ -94,7 +94,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
       - name: Install dependencies
@@ -117,8 +117,6 @@ jobs:
         if: ${{ !inputs.dry_run }}
         working-directory: sdk/typescript
         run: npm publish --access public --tag "${{ needs.version.outputs.npm_tag }}" --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Package artifact
         run: |
