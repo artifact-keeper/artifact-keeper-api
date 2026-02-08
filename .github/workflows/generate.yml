@@ -52,7 +52,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://npm.pkg.github.com"
+          registry-url: "https://registry.npmjs.org"
 
       - name: Extract version
         id: version
@@ -74,12 +74,12 @@ jobs:
         working-directory: sdk/typescript
         run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
 
-      - name: Publish to GitHub Packages
+      - name: Publish to npm
         if: ${{ !inputs.dry_run }}
         working-directory: sdk/typescript
-        run: npm publish
+        run: npm publish --access public
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Package artifact
         run: |
@@ -168,6 +168,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
       - name: Copy spec into package
         run: cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
 
@@ -178,6 +182,37 @@ jobs:
       - name: Build package
         working-directory: sdk/swift
         run: swift build
+
+      - name: Publish to SPM repo
+        if: ${{ !inputs.dry_run }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ github.ref_name }}"
+          REPO="artifact-keeper/artifact-keeper-swift-sdk"
+
+          # Clone or init the target repo
+          gh repo clone "$REPO" spm-repo 2>/dev/null || {
+            mkdir spm-repo && cd spm-repo && git init
+            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
+            cd ..
+          }
+
+          # Clear and copy SDK contents
+          cd spm-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          find . -not -path './.git/*' -not -path './.git' -not -path '.' -delete
+          cp -r ../sdk/swift/Package.swift .
+          cp -r ../sdk/swift/Sources .
+
+          # Commit and tag
+          git add -A
+          git commit -m "Release ${TAG}" || echo "No changes to commit"
+          git tag -f "$TAG"
+          git push origin HEAD:main --force
+          git push origin "$TAG" --force
 
       - name: Package artifact
         run: |
@@ -215,11 +250,28 @@ jobs:
       - name: Fix permissions
         run: sudo chown -R "$USER" generated/rust
 
+      - name: Inject crate metadata
+        working-directory: generated/rust
+        run: |
+          # Add required crates.io fields into the existing [package] section
+          sed -i '/^version = /a\
+          license = "MIT"\
+          description = "Rust client for the Artifact Keeper REST API"\
+          repository = "https://github.com/artifact-keeper/artifact-keeper-api"\
+          homepage = "https://github.com/artifact-keeper/artifact-keeper-api"' Cargo.toml
+
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Build generated code
         working-directory: generated/rust
         run: cargo check
+
+      - name: Publish to crates.io
+        if: ${{ !inputs.dry_run }}
+        working-directory: generated/rust
+        run: cargo publish --allow-dirty
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
       - name: Package artifact
         run: cd generated/rust && zip -r "$GITHUB_WORKSPACE/artifact-keeper-rust-${{ github.ref_name }}.zip" .
@@ -229,10 +281,72 @@ jobs:
           name: sdk-rust
           path: artifact-keeper-rust-${{ github.ref_name }}.zip
 
+  generate-python:
+    name: Generate Python SDK
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Generate SDK
+        uses: docker://openapitools/openapi-generator-cli:v7.12.0
+        with:
+          args: >-
+            generate
+            -c /github/workspace/sdk/python/openapi-generator-config.yaml
+            --additional-properties=packageVersion=${{ steps.version.outputs.version }}
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER" sdk/python/generated
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Inject package metadata
+        working-directory: sdk/python/generated
+        run: |
+          # Ensure setup.py has our metadata
+          if [ -f setup.py ]; then
+            sed -i 's|url=.*|url="https://github.com/artifact-keeper/artifact-keeper-api",|' setup.py
+            sed -i 's|license=.*|license="MIT",|' setup.py
+          fi
+
+      - name: Install and verify
+        working-directory: sdk/python/generated
+        run: |
+          pip install build twine
+          pip install .
+          python -c "import artifact_keeper_client; print('OK')"
+
+      - name: Build distribution
+        working-directory: sdk/python/generated
+        run: python -m build
+
+      - name: Publish to PyPI
+        if: ${{ !inputs.dry_run }}
+        working-directory: sdk/python/generated
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+
+      - name: Package artifact
+        run: cd sdk/python/generated && zip -r "$GITHUB_WORKSPACE/artifact-keeper-python-${{ github.ref_name }}.zip" .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-python
+          path: artifact-keeper-python-${{ github.ref_name }}.zip
+
   # ─── Stage 3: Create GitHub Release ──────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [generate-typescript, generate-kotlin, generate-swift, generate-rust]
+    needs: [generate-typescript, generate-kotlin, generate-swift, generate-rust, generate-python]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -257,17 +371,23 @@ jobs:
             artifacts/artifact-keeper-kotlin-${{ github.ref_name }}.zip
             artifacts/artifact-keeper-swift-${{ github.ref_name }}.zip
             artifacts/artifact-keeper-rust-${{ github.ref_name }}.zip
+            artifacts/artifact-keeper-python-${{ github.ref_name }}.zip
           body: |
             ## Artifact Keeper API ${{ github.ref_name }}
 
-            ### Install from GitHub Packages
+            ### Install
 
             **TypeScript** (npm):
             ```
-            npm install @artifact-keeper/sdk@${{ steps.version.outputs.version }} --registry=https://npm.pkg.github.com
+            npm install @artifact-keeper/sdk@${{ steps.version.outputs.version }}
             ```
 
-            **Kotlin** (Gradle):
+            **Python** (PyPI):
+            ```
+            pip install artifact-keeper-client==${{ steps.version.outputs.version }}
+            ```
+
+            **Kotlin** (Gradle — GitHub Packages Maven):
             ```kotlin
             repositories {
                 maven { url = uri("https://maven.pkg.github.com/artifact-keeper/artifact-keeper-api") }
@@ -277,11 +397,16 @@ jobs:
             }
             ```
 
-            **Swift** (SPM — uses build plugin, no pre-built package):
-            Download `artifact-keeper-swift-${{ github.ref_name }}.zip`, unzip into your project, and add as a local SPM package.
+            **Rust** (crates.io):
+            ```toml
+            [dependencies]
+            artifact-keeper-client = "${{ steps.version.outputs.version }}"
+            ```
 
-            **Rust** (Cargo):
-            Download `artifact-keeper-rust-${{ github.ref_name }}.zip` and add as a path dependency.
+            **Swift** (SPM):
+            ```swift
+            .package(url: "https://github.com/artifact-keeper/artifact-keeper-swift-sdk.git", from: "${{ steps.version.outputs.version }}")
+            ```
 
             ### Release artifacts
             | File | Description |
@@ -290,4 +415,5 @@ jobs:
             | `artifact-keeper-ts-*.zip` | TypeScript client (fetch) |
             | `artifact-keeper-kotlin-*.zip` | Kotlin client (Retrofit + kotlinx.serialization) |
             | `artifact-keeper-swift-*.zip` | Swift SPM package (URLSession) |
-            | `artifact-keeper-rust-*.zip` | Rust client |
+            | `artifact-keeper-rust-*.zip` | Rust client (reqwest) |
+            | `artifact-keeper-python-*.zip` | Python client (urllib3) |

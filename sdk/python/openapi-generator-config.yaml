@@ -1,0 +1,8 @@
+generatorName: python
+inputSpec: /github/workspace/openapi.yaml
+outputDir: /github/workspace/sdk/python/generated
+additionalProperties:
+  projectName: artifact-keeper-client
+  packageName: artifact_keeper_client
+  packageVersion: 0.0.0
+  library: urllib3
