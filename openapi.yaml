@@ -6712,7 +6712,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/signing/signatures/{artifactId}:
+  /api/v1/signing/artifacts/{artifactId}/signatures:
     get:
       operationId: listArtifactSignatures
       tags: [Signing]
@@ -7465,41 +7465,6 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/edge-nodes/{id}/repositories/{repositoryKey}:
-    delete:
-      operationId: unassignEdgeNodeRepository
-      tags: [Edge Nodes]
-      summary: Unassign repository
-      description: Removes a repository assignment from the edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          description: Edge node UUID
-          schema:
-            type: string
-            format: uuid
-        - name: repositoryKey
-          in: path
-          required: true
-          description: Repository key
-          schema:
-            type: string
-      responses:
-        "204":
-          description: Repository unassigned
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "500":
-          $ref: "#/components/responses/InternalServerError"
-
   # =============================================================================
   # Admin Endpoints
   # =============================================================================
@@ -7770,7 +7735,7 @@ paths:
   # Packages Endpoints
   # =============================================================================
 
-  /api/v1/tree/{repositoryKey}:
+  /api/v1/repositories/{repositoryKey}/tree:
     get:
       operationId: getRepositoryTree
       tags: [Tree]
