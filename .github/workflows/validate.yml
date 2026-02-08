@@ -121,3 +121,29 @@ jobs:
       - name: Build generated code
         working-directory: generated/rust
         run: cargo check
+
+  build-python:
+    name: Build Python SDK
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SDK
+        uses: docker://openapitools/openapi-generator-cli:v7.12.0
+        with:
+          args: generate -c /github/workspace/sdk/python/openapi-generator-config.yaml
+
+      - name: Fix permissions
+        run: sudo chown -R "$USER" sdk/python/generated
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install generated package
+        working-directory: sdk/python/generated
+        run: pip install .
+
+      - name: Verify import
+        run: python -c "import artifact_keeper_client; print('OK')"
