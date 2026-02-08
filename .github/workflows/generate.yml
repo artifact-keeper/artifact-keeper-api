@@ -42,10 +42,52 @@ jobs:
       - name: Verify bundleable
         run: redocly bundle openapi.yaml -o /tmp/bundled.yaml
 
+  # ─── Stage 1b: Parse version info ────────────────────────────────────
+  version:
+    name: Parse version
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.parse.outputs.version }}
+      pypi_version: ${{ steps.parse.outputs.pypi_version }}
+      is_prerelease: ${{ steps.parse.outputs.is_prerelease }}
+      npm_tag: ${{ steps.parse.outputs.npm_tag }}
+    steps:
+      - name: Parse tag into versions
+        id: parse
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+          # Detect pre-release (contains hyphen per semver: 1.0.0-alpha.1)
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+
+            # Extract pre-release label for npm tag (alpha, beta, rc)
+            LABEL=$(echo "$VERSION" | sed 's/^[0-9.]*-//' | sed 's/[.0-9]*$//')
+            echo "npm_tag=${LABEL:-next}" >> "$GITHUB_OUTPUT"
+
+            # Convert semver pre-release to PEP 440:
+            #   1.0.0-alpha.1 → 1.0.0a1
+            #   1.0.0-beta.2  → 1.0.0b2
+            #   1.0.0-rc.1    → 1.0.0rc1
+            PYPI_VERSION=$(echo "$VERSION" | sed -E 's/-alpha\.?/a/; s/-beta\.?/b/; s/-rc\.?/rc/')
+            echo "pypi_version=${PYPI_VERSION}" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "npm_tag=latest" >> "$GITHUB_OUTPUT"
+            echo "pypi_version=${VERSION}" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Log for debugging
+          echo "Version: ${VERSION}"
+          echo "PyPI version: $(grep pypi_version "$GITHUB_OUTPUT" | tail -1)"
+          echo "Is prerelease: $(grep is_prerelease "$GITHUB_OUTPUT" | tail -1)"
+          echo "npm tag: $(grep npm_tag "$GITHUB_OUTPUT" | tail -1)"
+
   # ─── Stage 2: Generate all SDKs in parallel ──────────────────────────
   generate-typescript:
     name: Generate TypeScript SDK
-    needs: validate
+    needs: [validate, version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,10 +96,6 @@ jobs:
         with:
           node-version: "20"
           registry-url: "https://registry.npmjs.org"
-
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Install dependencies
         working-directory: sdk/typescript
@@ -73,12 +111,12 @@ jobs:
 
       - name: Set package version
         working-directory: sdk/typescript
-        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version
+        run: npm version "${{ needs.version.outputs.version }}" --no-git-tag-version
 
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
         working-directory: sdk/typescript
-        run: npm publish --access public
+        run: npm publish --access public --tag "${{ needs.version.outputs.npm_tag }}"
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -95,7 +133,7 @@ jobs:
 
   generate-kotlin:
     name: Generate Kotlin SDK
-    needs: validate
+    needs: [validate, version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -104,10 +142,6 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Generate SDK
         uses: docker://openapitools/openapi-generator-cli:v7.12.0
@@ -152,7 +186,7 @@ jobs:
         run: ./gradlew build publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SDK_VERSION: ${{ steps.version.outputs.version }}
+          SDK_VERSION: ${{ needs.version.outputs.version }}
 
       - name: Package artifact
         run: cd sdk/kotlin/generated && zip -r "$GITHUB_WORKSPACE/artifact-keeper-kotlin-${{ github.ref_name }}.zip" .
@@ -164,14 +198,10 @@ jobs:
 
   generate-swift:
     name: Generate Swift SDK
-    needs: validate
+    needs: [validate, version]
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Copy spec into package
         run: cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
@@ -189,7 +219,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          VERSION="${{ needs.version.outputs.version }}"
           TAG="${{ github.ref_name }}"
           REPO="artifact-keeper/artifact-keeper-swift-sdk"
 
@@ -228,14 +258,10 @@ jobs:
 
   generate-rust:
     name: Generate Rust SDK
-    needs: validate
+    needs: [validate, version]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Generate SDK
         uses: docker://openapitools/openapi-generator-cli:v7.12.0
@@ -245,7 +271,7 @@ jobs:
             -i openapi.yaml
             -g rust
             -o generated/rust
-            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }},library=reqwest,supportMultipart=true
+            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ needs.version.outputs.version }},library=reqwest,supportMultipart=true
             --type-mappings=file=Vec<u8>
 
       - name: Fix permissions
@@ -284,15 +310,11 @@ jobs:
 
   generate-python:
     name: Generate Python SDK
-    needs: validate
+    needs: [validate, version]
     runs-on: ubuntu-latest
     environment: pypi
     steps:
       - uses: actions/checkout@v4
-
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
 
       - name: Generate SDK
         uses: docker://openapitools/openapi-generator-cli:v7.12.0
@@ -300,7 +322,7 @@ jobs:
           args: >-
             generate
             -c /github/workspace/sdk/python/openapi-generator-config.yaml
-            --additional-properties=packageVersion=${{ steps.version.outputs.version }}
+            --additional-properties=packageVersion=${{ needs.version.outputs.pypi_version }}
 
       - name: Fix permissions
         run: sudo chown -R "$USER" sdk/python/generated
@@ -346,7 +368,7 @@ jobs:
   # ─── Stage 3: Create GitHub Release ──────────────────────────────────
   release:
     name: Create GitHub Release
-    needs: [generate-typescript, generate-kotlin, generate-swift, generate-rust, generate-python]
+    needs: [generate-typescript, generate-kotlin, generate-swift, generate-rust, generate-python, version]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
@@ -357,14 +379,11 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
+          prerelease: ${{ needs.version.outputs.is_prerelease == 'true' }}
           files: |
             openapi.yaml
             artifacts/artifact-keeper-ts-${{ github.ref_name }}.zip
@@ -379,12 +398,12 @@ jobs:
 
             **TypeScript** (npm):
             ```
-            npm install @artifact-keeper/sdk@${{ steps.version.outputs.version }}
+            npm install @artifact-keeper/sdk@${{ needs.version.outputs.version }}
             ```
 
             **Python** (PyPI):
             ```
-            pip install artifact-keeper-client==${{ steps.version.outputs.version }}
+            pip install artifact-keeper-client==${{ needs.version.outputs.version }}
             ```
 
             **Kotlin** (Gradle — GitHub Packages Maven):
@@ -393,19 +412,19 @@ jobs:
                 maven { url = uri("https://maven.pkg.github.com/artifact-keeper/artifact-keeper-api") }
             }
             dependencies {
-                implementation("com.artifactkeeper:client:${{ steps.version.outputs.version }}")
+                implementation("com.artifactkeeper:client:${{ needs.version.outputs.version }}")
             }
             ```
 
             **Rust** (crates.io):
             ```toml
             [dependencies]
-            artifact-keeper-client = "${{ steps.version.outputs.version }}"
+            artifact-keeper-client = "${{ needs.version.outputs.version }}"
             ```
 
             **Swift** (SPM):
             ```swift
-            .package(url: "https://github.com/artifact-keeper/artifact-keeper-swift-sdk.git", from: "${{ steps.version.outputs.version }}")
+            .package(url: "https://github.com/artifact-keeper/artifact-keeper-swift-sdk.git", from: "${{ needs.version.outputs.version }}")
             ```
 
             ### Release artifacts
