@@ -6,7 +6,81 @@ OpenAPI 3.1 specification for the Artifact Keeper management REST API.
 
 - **`openapi.yaml`** — Single-file OpenAPI 3.1 spec covering 288 operations across 27 endpoint groups
 - **CI validation** — Spectral + Redocly linting on every push/PR
-- **SDK generation** — TypeScript and Rust clients auto-generated on release tags
+- **SDK generation** — TypeScript, Kotlin, Swift, and Rust clients auto-generated and published on release tags
+
+## SDK packages
+
+Tagged releases (`v*`) automatically generate SDKs and publish them to GitHub Packages.
+
+### TypeScript (npm)
+
+```bash
+npm install @artifact-keeper/sdk --registry=https://npm.pkg.github.com
+```
+
+```typescript
+import { client } from '@artifact-keeper/sdk';
+import { listRepositories, getHealth } from '@artifact-keeper/sdk';
+
+client.setConfig({
+  baseUrl: 'https://your-registry.example.com',
+  headers: { Authorization: `Bearer ${token}` },
+});
+
+const repos = await listRepositories();
+```
+
+### Kotlin (Gradle)
+
+```kotlin
+// settings.gradle.kts — add GitHub Packages Maven
+dependencyResolutionManagement {
+    repositories {
+        maven {
+            url = uri("https://maven.pkg.github.com/artifact-keeper/artifact-keeper-api")
+            credentials {
+                username = providers.gradleProperty("gpr.user").orNull ?: System.getenv("GITHUB_ACTOR")
+                password = providers.gradleProperty("gpr.token").orNull ?: System.getenv("GITHUB_TOKEN")
+            }
+        }
+    }
+}
+
+// app/build.gradle.kts
+dependencies {
+    implementation("com.artifactkeeper:client:<version>")
+}
+```
+
+### Swift (SPM build plugin)
+
+The Swift SDK uses Apple's swift-openapi-generator as an SPM build plugin. Download `artifact-keeper-swift-<version>.zip` from the GitHub Release, unzip it into your project, then add it as a local package:
+
+```swift
+// In your app's Package.swift or Xcode project
+.package(path: "../artifact-keeper-swift")
+```
+
+Types are generated at compile time — no pre-built binary needed.
+
+```swift
+import ArtifactKeeperClient
+import OpenAPIURLSession
+
+let client = Client(
+    serverURL: URL(string: "https://your-registry.example.com/api/v1")!,
+    transport: URLSessionTransport()
+)
+```
+
+### Rust (Cargo)
+
+Download `artifact-keeper-rust-<version>.zip` from the GitHub Release.
+
+```toml
+[dependencies]
+artifact-keeper-client = { path = "./artifact-keeper-rust" }
+```
 
 ## Endpoint groups
 
@@ -44,9 +118,9 @@ OpenAPI 3.1 specification for the Artifact Keeper management REST API.
 
 This spec covers Artifact Keeper's own REST API for managing the registry. It does **not** include format-specific protocol endpoints (npm, PyPI, Maven, Docker/OCI, Cargo, etc.) — those implement upstream specifications and are documented separately.
 
-## Usage
+## Local development
 
-### Validate locally
+### Validate spec
 
 ```bash
 npm install -g @stoplight/spectral-cli @redocly/cli
@@ -54,15 +128,21 @@ spectral lint openapi.yaml
 redocly lint openapi.yaml
 ```
 
-### Generate TypeScript client
+### Generate SDKs locally
 
 ```bash
-npx @hey-api/openapi-ts -i openapi.yaml -o generated/typescript -c @hey-api/client-fetch
-```
+# TypeScript
+cd sdk/typescript && npm install && npx openapi-ts
 
-### Generate Rust client
+# Kotlin (requires Docker)
+docker run --rm -v "${PWD}:/github/workspace" openapitools/openapi-generator-cli:v7.12.0 \
+  generate -c /github/workspace/sdk/kotlin/openapi-generator-config.yaml
 
-```bash
+# Swift (copy spec, then build with SPM)
+cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
+cd sdk/swift && swift build
+
+# Rust
 docker run --rm -v "${PWD}:/local" openapitools/openapi-generator-cli:v7.12.0 generate \
   -i /local/openapi.yaml -g rust -o /local/generated/rust \
   --additional-properties=packageName=artifact-keeper-client
@@ -74,13 +154,6 @@ The API supports two authentication methods:
 
 - **Bearer token** — JWT obtained via `POST /api/v1/auth/login`
 - **API key** — Long-lived token passed in the `X-API-Key` header
-
-## Releases
-
-Tagged releases (`v*`) automatically generate and publish:
-- The OpenAPI spec file
-- TypeScript client SDK (ZIP)
-- Rust client SDK (ZIP)
 
 ## License
 
