@@ -164,7 +164,7 @@ jobs:
   generate-swift:
     name: Generate Swift SDK
     needs: validate
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
@@ -209,7 +209,7 @@ jobs:
             -i openapi.yaml
             -g rust
             -o generated/rust
-            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }}
+            --additional-properties=packageName=artifact-keeper-client,packageVersion=${{ steps.version.outputs.version }},library=reqwest,supportMultipart=true
 
       - name: Fix permissions
         run: sudo chown -R "$USER" generated/rust
