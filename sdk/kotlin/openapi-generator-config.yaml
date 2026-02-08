@@ -2,10 +2,10 @@ generatorName: kotlin
 inputSpec: /github/workspace/openapi.yaml
 outputDir: /github/workspace/sdk/kotlin/generated
 typeMappings:
-  AnyType: "kotlinx.serialization.json.JsonElement"
-  object: "kotlinx.serialization.json.JsonElement"
+  AnyType: "JsonElement"
+  object: "JsonElement"
 importMappings:
-  AnyType: "kotlinx.serialization.json.JsonElement"
+  JsonElement: "kotlinx.serialization.json.JsonElement"
 additionalProperties:
   groupId: com.artifactkeeper
   artifactId: client

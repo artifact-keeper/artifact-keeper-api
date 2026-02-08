@@ -111,6 +111,7 @@ jobs:
             -g rust
             -o generated/rust
             --additional-properties=packageName=artifact-keeper-client,packageVersion=0.0.0,library=reqwest,supportMultipart=true
+            --type-mappings=file=Vec<u8>
 
       - name: Fix permissions
         run: sudo chown -R "$USER" generated/rust
