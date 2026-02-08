@@ -39,7 +39,7 @@ jobs:
         run: redocly lint openapi.yaml
 
       - name: Verify bundleable
-        run: redocly bundle openapi.yaml -o /dev/null
+        run: redocly bundle openapi.yaml -o /tmp/bundled.yaml
 
   # ─── Stage 2: Generate all SDKs in parallel ──────────────────────────
   generate-typescript:

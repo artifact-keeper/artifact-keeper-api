@@ -16,13 +16,13 @@ info:
     url: https://github.com/artifact-keeper/artifact-keeper
 
 servers:
-  - url: http://localhost:8080
-    description: Local development
   - url: https://{domain}
     description: Production
     variables:
       domain:
         default: registry.example.com
+  - url: http://localhost:8080
+    description: Local development
 
 security:
   - bearerAuth: []
@@ -111,6 +111,8 @@ paths:
                     $ref: "#/components/schemas/ComponentHealth"
                   scanner:
                     $ref: "#/components/schemas/ComponentHealth"
+        "429":
+          description: Too many requests
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -133,6 +135,8 @@ paths:
                   ready:
                     type: boolean
                     example: true
+        "429":
+          description: Too many requests
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -150,6 +154,8 @@ paths:
             text/plain:
               schema:
                 type: string
+        "429":
+          description: Too many requests
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -5826,7 +5832,7 @@ paths:
         "422":
           $ref: "#/components/responses/UnprocessableEntity"
 
-  /api/v1/migrations/{id}:
+  /api/v1/migrations/jobs/{id}:
     parameters:
       - name: id
         in: path
@@ -5874,7 +5880,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/migrations/{id}/start:
+  /api/v1/migrations/jobs/{id}/start:
     parameters:
       - name: id
         in: path
@@ -5905,7 +5911,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/migrations/{id}/pause:
+  /api/v1/migrations/jobs/{id}/pause:
     parameters:
       - name: id
         in: path
@@ -5936,7 +5942,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/migrations/{id}/resume:
+  /api/v1/migrations/jobs/{id}/resume:
     parameters:
       - name: id
         in: path
@@ -5967,7 +5973,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/migrations/{id}/cancel:
+  /api/v1/migrations/jobs/{id}/cancel:
     parameters:
       - name: id
         in: path
@@ -5998,7 +6004,7 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/migrations/{id}/stream:
+  /api/v1/migrations/jobs/{id}/stream:
     parameters:
       - name: id
         in: path
@@ -6027,7 +6033,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/migrations/{id}/items:
+  /api/v1/migrations/jobs/{id}/items:
     parameters:
       - name: id
         in: path
@@ -6072,7 +6078,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/migrations/{id}/report:
+  /api/v1/migrations/jobs/{id}/report:
     parameters:
       - name: id
         in: path
@@ -6101,7 +6107,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/migrations/{id}/assess:
+  /api/v1/migrations/jobs/{id}/assess:
     parameters:
       - name: id
         in: path
@@ -6135,7 +6141,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/migrations/{id}/assessment:
+  /api/v1/migrations/jobs/{id}/assessment:
     parameters:
       - name: id
         in: path
@@ -8145,10 +8151,10 @@ paths:
           $ref: "#/components/responses/InternalServerError"
 
   # ---------------------------------------------------------------------------
-  # SBOM — License Policies
+  # License Policies
   # ---------------------------------------------------------------------------
 
-  /api/v1/sbom/license-policies:
+  /api/v1/license-policies:
     get:
       operationId: listLicensePolicies
       tags: [SBOM]
@@ -8238,7 +8244,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/sbom/license-policies/{id}:
+  /api/v1/license-policies/{id}:
     parameters:
       - name: id
         in: path
@@ -9733,6 +9739,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SsoProviderInfo"
+        "429":
+          description: Too many requests
         "500":
           $ref: "#/components/responses/InternalServerError"
 
@@ -9752,6 +9760,16 @@ paths:
             type: string
             format: uuid
       responses:
+        "200":
+          description: SSO login URL (returned when Accept header is application/json)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_url:
+                    type: string
+                    format: uri
         "302":
           description: Redirect to OIDC identity provider
           headers:
@@ -9793,6 +9811,16 @@ paths:
           schema:
             type: string
       responses:
+        "200":
+          description: SSO login URL (returned when Accept header is application/json)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_url:
+                    type: string
+                    format: uri
         "302":
           description: Redirect to application with session code
           headers:
@@ -9872,6 +9900,16 @@ paths:
             type: string
             format: uuid
       responses:
+        "200":
+          description: SSO login URL (returned when Accept header is application/json)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_url:
+                    type: string
+                    format: uri
         "302":
           description: Redirect to SAML identity provider
           headers:
@@ -9915,6 +9953,16 @@ paths:
                   type: string
                   description: Optional relay state for redirect after authentication
       responses:
+        "200":
+          description: SSO login URL (returned when Accept header is application/json)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  redirect_url:
+                    type: string
+                    format: uri
         "302":
           description: Redirect to application with session code
           headers:
