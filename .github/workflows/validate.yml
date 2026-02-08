@@ -28,3 +28,89 @@ jobs:
 
       - name: Verify bundleable
         run: redocly bundle openapi.yaml -o /tmp/bundled.yaml
+
+  # ─── SDK build checks (verify generation works) ─────────────────────
+  build-typescript:
+    name: Build TypeScript SDK
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: sdk/typescript
+        run: npm install
+
+      - name: Generate SDK
+        working-directory: sdk/typescript
+        run: npx openapi-ts
+
+      - name: Type-check generated code
+        working-directory: sdk/typescript
+        run: npx tsc --noEmit
+
+  build-kotlin:
+    name: Build Kotlin SDK
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Generate SDK
+        uses: docker://openapitools/openapi-generator-cli:v7.12.0
+        with:
+          args: generate -c /github/workspace/sdk/kotlin/openapi-generator-config.yaml
+
+      - name: Build generated code
+        working-directory: sdk/kotlin/generated
+        run: ./gradlew build -x test
+
+  build-swift:
+    name: Build Swift SDK
+    needs: lint
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Copy spec into package
+        run: cp openapi.yaml sdk/swift/Sources/ArtifactKeeperClient/openapi.yaml
+
+      - name: Resolve dependencies
+        working-directory: sdk/swift
+        run: swift package resolve
+
+      - name: Build package
+        working-directory: sdk/swift
+        run: swift build
+
+  build-rust:
+    name: Build Rust SDK
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate SDK
+        uses: docker://openapitools/openapi-generator-cli:v7.12.0
+        with:
+          args: >-
+            generate
+            -i openapi.yaml
+            -g rust
+            -o generated/rust
+            --additional-properties=packageName=artifact-keeper-client,packageVersion=0.0.0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build generated code
+        working-directory: generated/rust
+        run: cargo check
