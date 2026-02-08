@@ -116,7 +116,7 @@ jobs:
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
         working-directory: sdk/typescript
-        run: npm publish --access public --tag "${{ needs.version.outputs.npm_tag }}"
+        run: npm publish --access public --tag "${{ needs.version.outputs.npm_tag }}" --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -280,12 +280,12 @@ jobs:
       - name: Inject crate metadata
         working-directory: generated/rust
         run: |
-          # Add required crates.io fields into the existing [package] section
-          sed -i '/^version = /a\
-          license = "MIT"\
-          description = "Rust client for the Artifact Keeper REST API"\
-          repository = "https://github.com/artifact-keeper/artifact-keeper-api"\
-          homepage = "https://github.com/artifact-keeper/artifact-keeper-api"' Cargo.toml
+          # Replace the generated description and add missing crates.io fields
+          sed -i 's|^description = .*|description = "Rust client for the Artifact Keeper REST API"|' Cargo.toml
+          # Add license/repo/homepage after the description line (only if not already present)
+          grep -q '^license' Cargo.toml || sed -i '/^description = /a\license = "MIT"' Cargo.toml
+          grep -q '^repository' Cargo.toml || sed -i '/^license/a\repository = "https://github.com/artifact-keeper/artifact-keeper-api"' Cargo.toml
+          grep -q '^homepage' Cargo.toml || sed -i '/^repository/a\homepage = "https://github.com/artifact-keeper/artifact-keeper-api"' Cargo.toml
 
       - uses: dtolnay/rust-toolchain@stable
 
