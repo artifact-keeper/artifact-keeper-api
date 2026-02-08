@@ -207,9 +207,6 @@ paths:
       tags: [Auth]
       summary: Logout user
       description: Invalidates the current session and associated tokens.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "204":
           description: Successfully logged out
@@ -256,9 +253,6 @@ paths:
       tags: [Auth]
       summary: Get current user
       description: Returns the profile of the currently authenticated user.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Current user profile
@@ -281,9 +275,6 @@ paths:
       tags: [Users]
       summary: List users
       description: Returns a paginated list of users with optional filtering by search term and active status.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: search
           in: query
@@ -326,9 +317,6 @@ paths:
       tags: [Users]
       summary: Create user
       description: Creates a new user account. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -381,9 +369,6 @@ paths:
       tags: [Users]
       summary: Get user by ID
       description: Returns a single user by their unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -413,9 +398,6 @@ paths:
       tags: [Users]
       summary: Update user
       description: Partially updates a user's profile. Requires admin privileges or ownership of the account.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -466,9 +448,6 @@ paths:
       tags: [Users]
       summary: Delete user
       description: Permanently deletes a user account. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -495,9 +474,6 @@ paths:
       tags: [Users]
       summary: List user roles
       description: Returns all roles assigned to the specified user.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -529,9 +505,6 @@ paths:
       tags: [Users]
       summary: Assign role to user
       description: Assigns an existing role to the specified user. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -567,15 +540,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/users/{id}/roles/{roleId}:
+  /api/v1/users/{id}/roles/{role_id}:
     delete:
       operationId: removeUserRole
       tags: [Users]
       summary: Remove role from user
       description: Removes a role assignment from the specified user. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -584,7 +554,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: roleId
+        - name: role_id
           in: path
           required: true
           description: Role UUID
@@ -609,9 +579,6 @@ paths:
       tags: [Users]
       summary: List API tokens
       description: Returns all API tokens for the specified user. Token values are not included in the response.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -645,9 +612,6 @@ paths:
       description: >-
         Creates a new API token for the specified user. The token value is only
         returned in the creation response and cannot be retrieved afterwards.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -710,15 +674,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/users/{id}/tokens/{tokenId}:
+  /api/v1/users/{id}/tokens/{token_id}:
     delete:
       operationId: deleteUserToken
       tags: [Users]
       summary: Revoke API token
       description: Permanently revokes and deletes an API token.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -727,7 +688,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: tokenId
+        - name: token_id
           in: path
           required: true
           description: Token UUID
@@ -752,9 +713,6 @@ paths:
       tags: [Users]
       summary: Change password
       description: Changes the password for the specified user. Requires the current password for verification.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -798,9 +756,6 @@ paths:
       tags: [Users]
       summary: Reset user password
       description: Resets the user's password and returns a temporary password. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -839,9 +794,6 @@ paths:
       tags: [Repositories]
       summary: List repositories
       description: Returns a paginated list of repositories with optional filtering by package format, repository type, and search term.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: format
           in: query
@@ -888,9 +840,6 @@ paths:
       tags: [Repositories]
       summary: Create repository
       description: Creates a new artifact repository. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -947,9 +896,6 @@ paths:
       tags: [Repositories]
       summary: Get repository
       description: Returns detailed information about a single repository identified by its unique key.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -978,9 +924,6 @@ paths:
       tags: [Repositories]
       summary: Update repository
       description: Partially updates repository metadata. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1033,9 +976,6 @@ paths:
         Deletes a repository. By default, fails if the repository contains
         artifacts. Use the force query parameter to delete a repository and
         all its contents.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1069,9 +1009,6 @@ paths:
       tags: [Repositories]
       summary: List artifacts in repository
       description: Returns a paginated list of artifacts within the specified repository with optional path prefix filtering.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1123,9 +1060,6 @@ paths:
       tags: [Repositories]
       summary: Get artifact info by path
       description: Returns metadata for a single artifact identified by its path within the repository. The path parameter is a catch-all that supports nested paths.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1163,9 +1097,6 @@ paths:
         Uploads a binary artifact to the specified path within the repository.
         If an artifact already exists at the path it will be overwritten,
         creating a new version.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1209,9 +1140,6 @@ paths:
       tags: [Repositories]
       summary: Delete artifact by path
       description: Permanently deletes the artifact at the specified path within the repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1243,9 +1171,6 @@ paths:
       tags: [Repositories]
       summary: Download artifact
       description: Downloads the binary content of an artifact. The response Content-Type is determined by the artifact's MIME type.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: key
           in: path
@@ -1286,9 +1211,6 @@ paths:
       tags: [Artifacts]
       summary: Get artifact by ID
       description: Returns artifact metadata by its unique identifier. Optionally scope by repository key.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1324,9 +1246,6 @@ paths:
       tags: [Artifacts]
       summary: Get artifact metadata
       description: Returns format-specific metadata for the artifact (e.g. Maven POM info, npm package.json fields, Docker manifest data).
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1359,9 +1278,6 @@ paths:
       tags: [Artifacts]
       summary: Get artifact download stats
       description: Returns download statistics for the specified artifact.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1409,9 +1325,6 @@ paths:
       tags: [Search]
       summary: Quick search
       description: Performs a fast full-text search across all accessible artifacts. Suitable for search-as-you-type interfaces.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: q
           in: query
@@ -1454,9 +1367,6 @@ paths:
       tags: [Search]
       summary: Advanced search
       description: Performs a faceted search with filtering, sorting, and pagination support.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: q
           in: query
@@ -1532,9 +1442,6 @@ paths:
       tags: [Search]
       summary: Search by checksum
       description: Finds artifacts matching a given checksum. Provide at least one of sha256, sha1, or md5.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: sha256
           in: query
@@ -1576,9 +1483,6 @@ paths:
       tags: [Search]
       summary: Autocomplete suggestions
       description: Returns search term suggestions based on a prefix. Useful for typeahead/autocomplete in the UI.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: prefix
           in: query
@@ -1613,9 +1517,6 @@ paths:
       tags: [Search]
       summary: Trending artifacts
       description: Returns the most downloaded artifacts over a given time window.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: days
           in: query
@@ -1647,9 +1548,6 @@ paths:
       tags: [Search]
       summary: Recently uploaded artifacts
       description: Returns the most recently uploaded artifacts across all accessible repositories.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: limit
           in: query
@@ -1685,9 +1583,6 @@ paths:
       tags: [Groups]
       summary: List groups
       description: Returns all groups visible to the authenticated user.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of groups
@@ -1707,9 +1602,6 @@ paths:
       tags: [Groups]
       summary: Create group
       description: Creates a new group. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -1750,9 +1642,6 @@ paths:
       tags: [Groups]
       summary: Get group
       description: Returns a single group by its unique identifier, including its members.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1782,9 +1671,6 @@ paths:
       tags: [Groups]
       summary: Update group
       description: Partially updates group metadata. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1832,9 +1718,6 @@ paths:
       tags: [Groups]
       summary: Delete group
       description: Permanently deletes a group and removes all associated permission grants. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1861,9 +1744,6 @@ paths:
       tags: [Groups]
       summary: Add members to group
       description: Adds one or more users to the group. Users who are already members are silently ignored.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1877,15 +1757,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [user_ids]
-              properties:
-                user_ids:
-                  type: array
-                  items:
-                    type: string
-                    format: uuid
-                  minItems: 1
+              $ref: "#/components/schemas/GroupMembersRequest"
       responses:
         "204":
           description: Members added
@@ -1905,9 +1777,6 @@ paths:
       tags: [Groups]
       summary: Remove members from group
       description: Removes one or more users from the group. Users who are not members are silently ignored.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -1921,15 +1790,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              required: [user_ids]
-              properties:
-                user_ids:
-                  type: array
-                  items:
-                    type: string
-                    format: uuid
-                  minItems: 1
+              $ref: "#/components/schemas/GroupMembersRequest"
       responses:
         "204":
           description: Members removed
@@ -1954,9 +1815,6 @@ paths:
       tags: [Permissions]
       summary: List permissions
       description: Returns all permission grants. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of permissions
@@ -1980,9 +1838,6 @@ paths:
       description: >-
         Creates a new permission grant associating a principal (user or group)
         with allowed actions on a resource. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -1998,12 +1853,12 @@ paths:
                   example: backend-team-libs-release
                 resource_type:
                   type: string
-                  enum: [repository, global]
+                  enum: [repository, system]
                   example: repository
                 resource_id:
                   type: ["string", "null"]
                   format: uuid
-                  description: The resource to grant access to. Required when resource_type is not global.
+                  description: The resource to grant access to. Required when resource_type is system-wide.
                 actions:
                   type: array
                   items:
@@ -2042,9 +1897,6 @@ paths:
       tags: [Permissions]
       summary: Get permission
       description: Returns a single permission grant by its unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2074,9 +1926,6 @@ paths:
       tags: [Permissions]
       summary: Update permission
       description: Updates the allowed actions on an existing permission grant. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2121,9 +1970,6 @@ paths:
       tags: [Permissions]
       summary: Delete permission
       description: Permanently removes a permission grant. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2151,9 +1997,6 @@ paths:
       tags: [Webhooks]
       summary: List webhooks
       description: Returns a paginated list of configured webhooks.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
@@ -2184,9 +2027,6 @@ paths:
       tags: [Webhooks]
       summary: Create webhook
       description: Creates a new webhook subscription for the specified events.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -2239,9 +2079,6 @@ paths:
       tags: [Webhooks]
       summary: Get webhook
       description: Returns a single webhook by its unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2271,9 +2108,6 @@ paths:
       tags: [Webhooks]
       summary: Delete webhook
       description: Permanently deletes a webhook and all its delivery history.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2299,9 +2133,6 @@ paths:
       tags: [Webhooks]
       summary: Update webhook
       description: Partially updates an existing webhook configuration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2363,9 +2194,6 @@ paths:
       tags: [Webhooks]
       summary: Enable a webhook
       description: Activates a previously disabled webhook so it resumes receiving deliveries.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Webhook enabled.
@@ -2392,9 +2220,6 @@ paths:
       tags: [Webhooks]
       summary: Disable a webhook
       description: Suspends a webhook so it no longer receives deliveries until re-enabled.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Webhook disabled.
@@ -2413,9 +2238,6 @@ paths:
       tags: [Webhooks]
       summary: Test webhook
       description: Sends a test ping event to the webhook URL to verify connectivity and configuration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2446,9 +2268,6 @@ paths:
       tags: [Webhooks]
       summary: List webhook deliveries
       description: Returns a paginated list of delivery attempts for the specified webhook.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2483,15 +2302,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/webhooks/{id}/deliveries/{deliveryId}/redeliver:
+  /api/v1/webhooks/{id}/deliveries/{delivery_id}/redeliver:
     post:
       operationId: redeliverWebhook
       tags: [Webhooks]
       summary: Redeliver webhook
       description: Retries a previously failed webhook delivery using the original payload.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2500,7 +2316,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: deliveryId
+        - name: delivery_id
           in: path
           required: true
           description: Delivery UUID
@@ -2533,9 +2349,6 @@ paths:
       tags: [Plugins]
       summary: List plugins
       description: Returns a paginated list of installed plugins.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
@@ -2566,9 +2379,6 @@ paths:
       tags: [Plugins]
       summary: Upload a plugin
       description: Uploads and installs a plugin from a multipart form submission containing the WASM binary and metadata.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -2607,9 +2417,6 @@ paths:
       tags: [Plugins]
       summary: Get plugin
       description: Returns detailed information about a single installed plugin.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2639,9 +2446,6 @@ paths:
       tags: [Plugins]
       summary: Uninstall plugin
       description: Uninstalls a plugin and removes its WASM binary and configuration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2667,9 +2471,6 @@ paths:
       tags: [Plugins]
       summary: Update plugin
       description: Updates plugin status (activate or disable).
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2720,9 +2521,6 @@ paths:
       tags: [Plugins]
       summary: Enable a plugin
       description: Activates a disabled plugin so it begins processing events.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Plugin enabled.
@@ -2749,9 +2547,6 @@ paths:
       tags: [Plugins]
       summary: Disable a plugin
       description: Deactivates a plugin so it stops processing events until re-enabled.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Plugin disabled.
@@ -2770,9 +2565,6 @@ paths:
       tags: [Plugins]
       summary: Get plugin config
       description: Returns the current configuration for the specified plugin.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2804,9 +2596,6 @@ paths:
       tags: [Plugins]
       summary: Update plugin config
       description: Replaces the entire plugin configuration with the provided JSON object.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2848,9 +2637,6 @@ paths:
       tags: [Plugins]
       summary: List plugin events
       description: Returns a paginated list of events emitted by the specified plugin.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -2891,9 +2677,6 @@ paths:
       tags: [Plugins]
       summary: Install plugin from Git
       description: Installs a WASM plugin by cloning from a Git repository URL.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -2934,9 +2717,6 @@ paths:
       tags: [Plugins]
       summary: Install plugin from ZIP
       description: Installs a WASM plugin by uploading a ZIP archive containing the plugin bundle.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -2973,9 +2753,6 @@ paths:
       tags: [Plugins]
       summary: Install plugin from local path
       description: Installs a WASM plugin from a local filesystem path accessible to the server.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3020,9 +2797,6 @@ paths:
       tags: [Plugins]
       summary: Reload a plugin
       description: Hot-reloads a plugin, re-reading its WASM binary and configuration without a full restart.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Plugin reloaded.
@@ -3044,9 +2818,6 @@ paths:
       tags: [Formats]
       summary: List format handlers
       description: Returns all registered format handlers including both core and WASM-based handlers.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of format handlers
@@ -3061,17 +2832,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/formats/{formatKey}:
+  /api/v1/formats/{format_key}:
     get:
       operationId: getFormat
       tags: [Formats]
       summary: Get format handler
       description: Returns detailed information about a single format handler identified by its unique key.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: formatKey
+        - name: format_key
           in: path
           required: true
           description: Format handler key (e.g. maven, npm, docker)
@@ -3091,17 +2859,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/formats/{formatKey}/enable:
+  /api/v1/formats/{format_key}/enable:
     post:
       operationId: enableFormat
       tags: [Formats]
       summary: Enable format handler
       description: Enables a previously disabled format handler, allowing repositories of this format to accept uploads.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: formatKey
+        - name: format_key
           in: path
           required: true
           description: Format handler key
@@ -3123,17 +2888,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/formats/{formatKey}/disable:
+  /api/v1/formats/{format_key}/disable:
     post:
       operationId: disableFormat
       tags: [Formats]
       summary: Disable format handler
       description: Disables a format handler. Existing artifacts remain accessible but new uploads are rejected.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: formatKey
+        - name: format_key
           in: path
           required: true
           description: Format handler key
@@ -3155,17 +2917,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/formats/{formatKey}/test:
+  /api/v1/formats/{format_key}/test:
     post:
       operationId: testFormat
       tags: [Formats]
       summary: Test format handler
       description: Tests the format handler with sample data to verify it is functioning correctly.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: formatKey
+        - name: format_key
           in: path
           required: true
           description: Format handler key
@@ -3177,13 +2936,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, message]
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
+                $ref: "#/components/schemas/TestResultResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -3203,9 +2956,6 @@ paths:
       tags: [Signing]
       summary: List signing keys
       description: Returns a paginated list of signing keys.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
@@ -3236,9 +2986,6 @@ paths:
       tags: [Signing]
       summary: Create signing key
       description: Generates a new signing key pair for artifact signing.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3278,9 +3025,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/signing/keys/{keyId}:
+  /api/v1/signing/keys/{key_id}:
     parameters:
-      - name: keyId
+      - name: key_id
         in: path
         required: true
         description: Signing key ID.
@@ -3293,9 +3040,6 @@ paths:
       tags: [Signing]
       summary: Get a signing key
       description: Returns details of a single signing key.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Signing key details.
@@ -3313,9 +3057,6 @@ paths:
       tags: [Signing]
       summary: Delete a signing key
       description: Permanently removes a signing key. Active repositories using this key must be reconfigured first.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "204":
           description: Signing key deleted.
@@ -3326,9 +3067,9 @@ paths:
         "409":
           $ref: "#/components/responses/Conflict"
 
-  /api/v1/signing/keys/{keyId}/revoke:
+  /api/v1/signing/keys/{key_id}/revoke:
     parameters:
-      - name: keyId
+      - name: key_id
         in: path
         required: true
         description: Signing key ID.
@@ -3340,9 +3081,6 @@ paths:
       tags: [Signing]
       summary: Revoke a signing key
       description: Marks a signing key as revoked so it can no longer be used for signing operations.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Signing key revoked.
@@ -3355,9 +3093,9 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/signing/keys/{keyId}/rotate:
+  /api/v1/signing/keys/{key_id}/rotate:
     parameters:
-      - name: keyId
+      - name: key_id
         in: path
         required: true
         description: Signing key ID.
@@ -3369,9 +3107,6 @@ paths:
       tags: [Signing]
       summary: Rotate a signing key
       description: Generates a new key pair, replaces the existing key, and revokes the old one.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Signing key rotated.
@@ -3384,9 +3119,9 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/signing/keys/{keyId}/public:
+  /api/v1/signing/keys/{key_id}/public:
     parameters:
-      - name: keyId
+      - name: key_id
         in: path
         required: true
         description: Signing key ID.
@@ -3398,9 +3133,6 @@ paths:
       tags: [Signing]
       summary: Get public key material
       description: Returns the public key in PEM (RSA) or ASCII-armored (GPG) format.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Public key in text format.
@@ -3413,9 +3145,9 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/signing/repositories/{repoId}/config:
+  /api/v1/signing/repositories/{repo_id}/config:
     parameters:
-      - name: repoId
+      - name: repo_id
         in: path
         required: true
         description: Repository ID.
@@ -3428,26 +3160,13 @@ paths:
       tags: [Signing]
       summary: Get repository signing configuration
       description: Returns the signing configuration for a repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Signing configuration.
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  enabled:
-                    type: boolean
-                  key_id:
-                    type: string
-                    format: uuid
-                  sign_metadata:
-                    type: boolean
-                  sign_packages:
-                    type: boolean
+                $ref: "#/components/schemas/SigningRepositoryConfig"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -3458,25 +3177,12 @@ paths:
       tags: [Signing]
       summary: Update repository signing configuration
       description: Updates signing settings for a repository, such as which key to use and what to sign.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                enabled:
-                  type: boolean
-                key_id:
-                  type: string
-                  format: uuid
-                sign_metadata:
-                  type: boolean
-                sign_packages:
-                  type: boolean
+              $ref: "#/components/schemas/SigningRepositoryConfig"
       responses:
         "200":
           description: Updated signing configuration.
@@ -3492,9 +3198,9 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/signing/repositories/{repoId}/public-key:
+  /api/v1/signing/repositories/{repo_id}/public-key:
     parameters:
-      - name: repoId
+      - name: repo_id
         in: path
         required: true
         description: Repository ID.
@@ -3506,9 +3212,6 @@ paths:
       tags: [Signing]
       summary: Get repository public key
       description: Returns the active public signing key for a repository in PEM or GPG armored format.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Public key in text format.
@@ -3530,9 +3233,6 @@ paths:
       tags: [Security]
       summary: Get security dashboard
       description: Returns an overview of security scan statistics and overall health score.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Security dashboard summary.
@@ -3562,9 +3262,6 @@ paths:
       tags: [Security]
       summary: List security scores
       description: Returns security scores for all repositories.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of repository security scores
@@ -3585,9 +3282,6 @@ paths:
       tags: [Security]
       summary: Trigger a security scan
       description: Initiates an asynchronous security scan for a specific artifact, repository, or using a named scanner.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3631,9 +3325,6 @@ paths:
       tags: [Security]
       summary: List security scans
       description: Returns a paginated list of security scans with optional filtering by status and repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: status
           in: query
@@ -3676,9 +3367,6 @@ paths:
       tags: [Security]
       summary: Trigger security scan
       description: Triggers a new security scan for the specified artifact or repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3723,9 +3411,6 @@ paths:
       tags: [Security]
       summary: Get scan details
       description: Returns detailed information about a single security scan.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -3754,9 +3439,6 @@ paths:
       tags: [Security]
       summary: List scan findings
       description: Returns a paginated list of vulnerability findings for a specific scan with optional severity filtering.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -3797,9 +3479,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/security/artifacts/{artifactId}/scans:
+  /api/v1/security/artifacts/{artifact_id}/scans:
     parameters:
-      - name: artifactId
+      - name: artifact_id
         in: path
         required: true
         description: Artifact ID.
@@ -3811,9 +3493,6 @@ paths:
       tags: [Security]
       summary: List scans for an artifact
       description: Returns all security scans that have been performed on a specific artifact.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of scans for the artifact.
@@ -3834,9 +3513,6 @@ paths:
       tags: [Security]
       summary: Acknowledge finding
       description: Marks a vulnerability finding as acknowledged with an explanatory reason.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -3880,9 +3556,6 @@ paths:
       tags: [Security]
       summary: Remove finding acknowledgement
       description: Removes the acknowledgement from a previously acknowledged finding.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -3913,9 +3586,6 @@ paths:
       tags: [Security]
       summary: List security policies
       description: Returns all configured security policies.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of security policies
@@ -3935,9 +3605,6 @@ paths:
       tags: [Security]
       summary: Create security policy
       description: Creates a new security policy with rules for vulnerability handling.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -3985,9 +3652,6 @@ paths:
       tags: [Security]
       summary: Get security policy
       description: Returns a single security policy by its unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4015,9 +3679,6 @@ paths:
       tags: [Security]
       summary: Update a security policy
       description: Replaces a security policy with the provided definition.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4053,9 +3714,6 @@ paths:
       tags: [Security]
       summary: Delete security policy
       description: Permanently deletes a security policy.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4082,9 +3740,6 @@ paths:
       tags: [Edge Nodes]
       summary: List edge nodes
       description: Returns all registered edge nodes.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of edge nodes
@@ -4104,9 +3759,6 @@ paths:
       tags: [Edge Nodes]
       summary: Register edge node
       description: Registers a new edge node in the CDN mesh network.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -4161,9 +3813,6 @@ paths:
       tags: [Edge Nodes]
       summary: Get edge node
       description: Returns detailed information about a single edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4191,9 +3840,6 @@ paths:
       tags: [Edge Nodes]
       summary: Deregister edge node
       description: Deregisters an edge node, removing it from the CDN mesh network.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4219,9 +3865,6 @@ paths:
       tags: [Edge Nodes]
       summary: Update edge node
       description: Partially updates edge node configuration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4272,9 +3915,6 @@ paths:
       tags: [Edge Nodes]
       summary: Edge node heartbeat
       description: Reports the current status and cache usage of an edge node. Called periodically by edge node agents.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4315,9 +3955,6 @@ paths:
       tags: [Edge Nodes]
       summary: Trigger sync
       description: Triggers a content sync for the specified edge node by artifact ID or repository key.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4372,9 +4009,6 @@ paths:
       tags: [Edge Nodes]
       summary: List sync tasks
       description: Returns all synchronization tasks for an edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of sync tasks.
@@ -4389,7 +4023,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/repositories/{repoId}:
+  /api/v1/edge-nodes/{id}/repositories/{repo_id}:
     parameters:
       - name: id
         in: path
@@ -4398,7 +4032,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: repoId
+      - name: repo_id
         in: path
         required: true
         description: Repository ID.
@@ -4411,9 +4045,6 @@ paths:
       tags: [Edge Nodes]
       summary: Assign a repository to an edge node
       description: Configures an edge node to cache and serve artifacts from the specified repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -4438,9 +4069,6 @@ paths:
       tags: [Edge Nodes]
       summary: Remove a repository from an edge node
       description: Stops the edge node from caching the specified repository and purges its cached artifacts.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "204":
           description: Repository removed from edge node.
@@ -4463,9 +4091,6 @@ paths:
       tags: [Edge Nodes]
       summary: Initiate a transfer session
       description: Creates a new chunked transfer session to distribute an artifact to or between edge nodes.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -4496,7 +4121,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}:
     parameters:
       - name: id
         in: path
@@ -4505,7 +4130,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
@@ -4517,9 +4142,6 @@ paths:
       tags: [Edge Nodes]
       summary: Get transfer session status
       description: Returns the current status and progress of a transfer session.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Transfer session details.
@@ -4532,7 +4154,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}/chunks:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/chunks:
     parameters:
       - name: id
         in: path
@@ -4541,7 +4163,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
@@ -4553,9 +4175,6 @@ paths:
       tags: [Edge Nodes]
       summary: Get chunk manifest
       description: Returns the chunk manifest for a transfer session including sizes and checksums.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Chunk manifest.
@@ -4568,7 +4187,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}/chunk/{chunkIndex}:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/chunk/{chunk_index}:
     parameters:
       - name: id
         in: path
@@ -4577,14 +4196,14 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
         schema:
           type: string
           format: uuid
-      - name: chunkIndex
+      - name: chunk_index
         in: path
         required: true
         description: Zero-based chunk index.
@@ -4595,9 +4214,6 @@ paths:
       tags: [Edge Nodes]
       summary: Upload a transfer chunk
       description: Uploads a single binary chunk for a transfer session.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -4613,7 +4229,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}/chunk/{chunkIndex}/fail:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/chunk/{chunk_index}/fail:
     parameters:
       - name: id
         in: path
@@ -4622,14 +4238,14 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
         schema:
           type: string
           format: uuid
-      - name: chunkIndex
+      - name: chunk_index
         in: path
         required: true
         description: Zero-based chunk index.
@@ -4640,9 +4256,6 @@ paths:
       tags: [Edge Nodes]
       summary: Mark a chunk as failed
       description: Reports that a chunk transfer has failed, allowing the coordinator to take corrective action.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Chunk marked as failed.
@@ -4651,7 +4264,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}/chunk/{chunkIndex}/retry:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/chunk/{chunk_index}/retry:
     parameters:
       - name: id
         in: path
@@ -4660,14 +4273,14 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
         schema:
           type: string
           format: uuid
-      - name: chunkIndex
+      - name: chunk_index
         in: path
         required: true
         description: Zero-based chunk index.
@@ -4678,9 +4291,6 @@ paths:
       tags: [Edge Nodes]
       summary: Retry a failed chunk
       description: Requests a retry of a previously failed chunk transfer.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Chunk retry initiated.
@@ -4689,7 +4299,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}/complete:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/complete:
     parameters:
       - name: id
         in: path
@@ -4698,7 +4308,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
@@ -4710,9 +4320,6 @@ paths:
       tags: [Edge Nodes]
       summary: Complete a transfer session
       description: Finalizes a transfer session after all chunks have been uploaded and verified.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Transfer session completed.
@@ -4725,7 +4332,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/transfer/{sessionId}/fail:
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/fail:
     parameters:
       - name: id
         in: path
@@ -4734,7 +4341,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: sessionId
+      - name: session_id
         in: path
         required: true
         description: Transfer session ID.
@@ -4746,9 +4353,6 @@ paths:
       tags: [Edge Nodes]
       summary: Fail a transfer session
       description: Marks an entire transfer session as failed, releasing resources.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Transfer session marked as failed.
@@ -4767,9 +4371,6 @@ paths:
       tags: [Edge Nodes]
       summary: List peer connections
       description: Returns all peer connections for the specified edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4799,9 +4400,6 @@ paths:
       tags: [Edge Nodes]
       summary: Add peer connection
       description: Establishes a peer connection between two edge nodes for P2P content distribution.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -4855,9 +4453,6 @@ paths:
       tags: [Edge Nodes]
       summary: Discover peers
       description: Triggers peer discovery and returns newly found peer connections.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Discovered peer connections.
@@ -4886,9 +4481,6 @@ paths:
       tags: [Edge Nodes]
       summary: Probe peer connectivity
       description: Tests network connectivity from this edge node to its peers and returns reachability and latency.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Probe result.
@@ -4929,9 +4521,6 @@ paths:
       tags: [Edge Nodes]
       summary: Report a peer as unreachable
       description: Reports that a specific peer node is unreachable from this edge node, updating the network topology.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Peer marked as unreachable.
@@ -4940,7 +4529,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/chunks/{artifactId}:
+  /api/v1/edge-nodes/{id}/chunks/{artifact_id}:
     parameters:
       - name: id
         in: path
@@ -4949,7 +4538,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: artifactId
+      - name: artifact_id
         in: path
         required: true
         description: Artifact ID.
@@ -4961,9 +4550,6 @@ paths:
       tags: [Edge Nodes]
       summary: List artifact chunks on an edge node
       description: Returns the list of chunks for a specific artifact that are cached on this edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of chunks.
@@ -4995,7 +4581,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/chunks/{artifactId}/peers:
+  /api/v1/edge-nodes/{id}/chunks/{artifact_id}/peers:
     parameters:
       - name: id
         in: path
@@ -5004,7 +4590,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: artifactId
+      - name: artifact_id
         in: path
         required: true
         description: Artifact ID.
@@ -5016,9 +4602,6 @@ paths:
       tags: [Edge Nodes]
       summary: List peers holding artifact chunks
       description: Returns peers that have chunks of the specified artifact available for transfer.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of peer connections holding artifact chunks.
@@ -5033,7 +4616,7 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
-  /api/v1/edge-nodes/{id}/chunks/{artifactId}/scored-peers:
+  /api/v1/edge-nodes/{id}/chunks/{artifact_id}/scored-peers:
     parameters:
       - name: id
         in: path
@@ -5042,7 +4625,7 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: artifactId
+      - name: artifact_id
         in: path
         required: true
         description: Artifact ID.
@@ -5054,9 +4637,6 @@ paths:
       tags: [Edge Nodes]
       summary: List scored peers for artifact chunks
       description: Returns peers holding artifact chunks ranked by a composite score of latency, bandwidth, and reliability.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Scored peer list.
@@ -5077,9 +4657,6 @@ paths:
       tags: [Edge Nodes]
       summary: Update the network profile
       description: Replaces the global network profile that governs edge node communication parameters.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -5109,9 +4686,6 @@ paths:
       tags: [Admin]
       summary: List backups
       description: Returns a paginated list of system backups.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
@@ -5144,9 +4718,6 @@ paths:
       tags: [Admin]
       summary: Create backup
       description: Initiates a new system backup with the specified options.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -5185,9 +4756,6 @@ paths:
       tags: [Admin]
       summary: Get backup details
       description: Returns detailed information about a single backup.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5217,9 +4785,6 @@ paths:
       tags: [Admin]
       summary: Delete backup
       description: Permanently deletes a backup and its associated data files.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5254,9 +4819,6 @@ paths:
       tags: [Admin]
       summary: Execute a backup
       description: Starts the backup process asynchronously.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Backup execution started.
@@ -5277,9 +4839,6 @@ paths:
       tags: [Admin]
       summary: Restore from backup
       description: Initiates a system restore from the specified backup. This is a destructive operation that replaces current data.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5294,15 +4853,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [task_id, status]
-                properties:
-                  task_id:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                    example: started
+                $ref: "#/components/schemas/AsyncTaskResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -5326,9 +4877,6 @@ paths:
       tags: [Admin]
       summary: Cancel a running backup or restore
       description: Cancels a backup or restore operation that is currently in progress.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Backup operation cancelled.
@@ -5349,9 +4897,6 @@ paths:
       tags: [Admin]
       summary: Get system settings
       description: Returns the current system-wide settings.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: System settings.
@@ -5369,9 +4914,6 @@ paths:
       tags: [Admin]
       summary: Update system settings
       description: Replaces the system-wide settings with the provided values.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -5398,9 +4940,6 @@ paths:
       tags: [Admin]
       summary: Get system statistics
       description: Returns aggregate system statistics including user, repository, and artifact counts.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: System statistics.
@@ -5433,9 +4972,6 @@ paths:
       tags: [Admin]
       summary: Trigger storage cleanup
       description: Starts an asynchronous job to remove orphaned files and expired artifacts.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Cleanup job started.
@@ -5459,9 +4995,6 @@ paths:
       tags: [Admin]
       summary: Trigger search reindex
       description: Starts an asynchronous job to rebuild the search index from stored metadata.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Reindex job started.
@@ -5488,9 +5021,6 @@ paths:
       tags: [Migration]
       summary: List migration connections
       description: Returns all configured migration source connections.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of migration connections
@@ -5512,9 +5042,6 @@ paths:
       tags: [Migration]
       summary: Create migration connection
       description: Creates a new connection to a remote artifact manager for migration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -5566,9 +5093,6 @@ paths:
       tags: [Migration]
       summary: Get migration connection
       description: Returns a single migration connection by its unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5598,9 +5122,6 @@ paths:
       tags: [Migration]
       summary: Delete migration connection
       description: Permanently deletes a migration connection. Fails if there are active migration jobs using this connection.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5628,9 +5149,6 @@ paths:
       tags: [Migration]
       summary: Update migration connection
       description: Partially updates migration connection details.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5681,9 +5199,6 @@ paths:
       tags: [Migration]
       summary: Test migration connection
       description: Tests connectivity and authentication against the remote artifact manager.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5698,13 +5213,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                required: [success, message]
-                properties:
-                  success:
-                    type: boolean
-                  message:
-                    type: string
+                $ref: "#/components/schemas/TestResultResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -5720,9 +5229,6 @@ paths:
       tags: [Migration]
       summary: List remote repositories
       description: Lists repositories available on the remote artifact manager for migration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -5755,9 +5261,6 @@ paths:
       tags: [Migration]
       summary: List migration jobs
       description: Returns a paginated list of migration jobs, optionally filtered by status.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: status
           in: query
@@ -5789,9 +5292,6 @@ paths:
       tags: [Migration]
       summary: Create a migration job
       description: Creates a new migration job to transfer artifacts from a source system.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -5847,9 +5347,6 @@ paths:
       tags: [Migration]
       summary: Get a migration job
       description: Returns full details and progress of a migration job.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Migration job details.
@@ -5867,9 +5364,6 @@ paths:
       tags: [Migration]
       summary: Delete a migration job
       description: Removes a completed or cancelled migration job and its records.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "204":
           description: Migration job deleted.
@@ -5894,9 +5388,6 @@ paths:
       tags: [Migration]
       summary: Start a migration job
       description: Begins executing a pending migration job asynchronously.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Migration started.
@@ -5925,9 +5416,6 @@ paths:
       tags: [Migration]
       summary: Pause a migration job
       description: Pauses a running migration job so it can be resumed later.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Migration paused.
@@ -5956,9 +5444,6 @@ paths:
       tags: [Migration]
       summary: Resume a migration job
       description: Resumes a paused migration job from where it left off.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Migration resumed.
@@ -5987,9 +5472,6 @@ paths:
       tags: [Migration]
       summary: Cancel a migration job
       description: Cancels a running or paused migration job. Already-migrated artifacts are retained.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Migration cancelled.
@@ -6018,9 +5500,6 @@ paths:
       tags: [Migration]
       summary: Stream migration progress
       description: Opens a Server-Sent Events stream for real-time migration progress updates.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: SSE event stream.
@@ -6047,9 +5526,6 @@ paths:
       tags: [Migration]
       summary: List migration items
       description: Returns a paginated list of individual items in a migration job, optionally filtered by status.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: status
           in: query
@@ -6092,9 +5568,6 @@ paths:
       tags: [Migration]
       summary: Get migration report
       description: Returns a comprehensive report of a completed or in-progress migration job.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Migration report.
@@ -6121,9 +5594,6 @@ paths:
       tags: [Migration]
       summary: Assess a migration
       description: Triggers an asynchronous assessment of the migration to estimate size, duration, and potential issues.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Assessment started.
@@ -6155,9 +5625,6 @@ paths:
       tags: [Migration]
       summary: Get migration assessment
       description: Returns the results of a previously triggered migration assessment.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Migration assessment.
@@ -6179,9 +5646,6 @@ paths:
       tags: [Builds]
       summary: List builds
       description: Returns a paginated list of recent builds.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - $ref: "#/components/parameters/page"
         - $ref: "#/components/parameters/perPage"
@@ -6213,9 +5677,6 @@ paths:
       tags: [Builds]
       summary: Get build
       description: Returns detailed information about a single build.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6244,9 +5705,6 @@ paths:
       tags: [Builds]
       summary: Compare two builds
       description: Returns a diff showing artifacts added, removed, or changed between two builds.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: build1
           in: query
@@ -6307,9 +5765,6 @@ paths:
       tags: [Packages]
       summary: List packages
       description: Returns a paginated list of packages with optional filtering by repository and format.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: repository
           in: query
@@ -6351,9 +5806,6 @@ paths:
       tags: [Packages]
       summary: Get package
       description: Returns detailed information about a single package.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6382,9 +5834,6 @@ paths:
       tags: [Packages]
       summary: List package versions
       description: Returns all published versions of the specified package.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6426,9 +5875,6 @@ paths:
       tags: [Tree]
       summary: Browse the storage tree
       description: Returns directory and file entries at the specified path in the virtual storage tree.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Tree node listing.
@@ -6447,15 +5893,12 @@ paths:
   # Webhooks Endpoints
   # =============================================================================
 
-  /api/v1/webhooks/{id}/deliveries/{deliveryId}:
+  /api/v1/webhooks/{id}/deliveries/{delivery_id}:
     get:
       operationId: getWebhookDelivery
       tags: [Webhooks]
       summary: Get webhook delivery
       description: Returns full details of a single webhook delivery attempt including request and response bodies.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6464,7 +5907,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: deliveryId
+        - name: delivery_id
           in: path
           required: true
           description: Delivery UUID
@@ -6491,9 +5934,6 @@ paths:
       tags: [Plugins]
       summary: Upgrade plugin
       description: Upgrades the plugin to the latest available version from its original source.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6524,9 +5964,6 @@ paths:
       tags: [Plugins]
       summary: Get plugin health
       description: Returns the current health status and resource usage of the specified plugin.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6566,9 +6003,6 @@ paths:
       tags: [Plugins]
       summary: Restart plugin
       description: Restarts a plugin that is in an error state, reinitializing its WASM runtime.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6603,9 +6037,6 @@ paths:
       tags: [Signing]
       summary: Sign artifact
       description: Creates a cryptographic signature for the specified artifact using the given signing key.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -6658,9 +6089,6 @@ paths:
       tags: [Signing]
       summary: Verify artifact signature
       description: Verifies all signatures on the specified artifact and returns the verification results.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -6711,17 +6139,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/signing/artifacts/{artifactId}/signatures:
+  /api/v1/signing/artifacts/{artifact_id}/signatures:
     get:
       operationId: listArtifactSignatures
       tags: [Signing]
       summary: List artifact signatures
       description: Returns all signatures associated with the specified artifact.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: artifactId
+        - name: artifact_id
           in: path
           required: true
           description: Artifact UUID
@@ -6758,17 +6183,14 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/signing/signatures/{signatureId}:
+  /api/v1/signing/signatures/{signature_id}:
     delete:
       operationId: deleteSignature
       tags: [Signing]
       summary: Delete signature
       description: Permanently deletes a single artifact signature.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: signatureId
+        - name: signature_id
           in: path
           required: true
           description: Signature UUID
@@ -6791,17 +6213,14 @@ paths:
   # Security Endpoints
   # =============================================================================
 
-  /api/v1/security/scores/{repositoryKey}:
+  /api/v1/security/scores/{repository_key}:
     get:
       operationId: getSecurityScore
       tags: [Security]
       summary: Get repository security score
       description: Returns the security score and vulnerability counts for a specific repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: repositoryKey
+        - name: repository_key
           in: path
           required: true
           description: Repository key
@@ -6827,9 +6246,6 @@ paths:
       tags: [Security]
       summary: Security summary
       description: Returns an aggregate security summary with total vulnerability counts across all repositories.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Aggregate security summary
@@ -6871,9 +6287,6 @@ paths:
       tags: [Edge Nodes]
       summary: Remove peer connection
       description: Removes a peer connection between two edge nodes.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6907,9 +6320,6 @@ paths:
       tags: [Edge Nodes]
       summary: Get scored peers
       description: Returns peer nodes scored by latency, bandwidth, and chunk availability for optimal transfer source selection.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6940,9 +6350,6 @@ paths:
       tags: [Edge Nodes]
       summary: Get network profile
       description: Returns the network profile including bandwidth and concurrency limits for the specified edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -6970,9 +6377,6 @@ paths:
       tags: [Edge Nodes]
       summary: Update network profile
       description: Replaces the network profile for the specified edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7020,9 +6424,6 @@ paths:
       tags: [Edge Nodes]
       summary: Start chunked transfer
       description: Initiates a new chunked transfer session for an artifact to or from the edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7069,9 +6470,6 @@ paths:
       tags: [Edge Nodes]
       summary: List transfer sessions
       description: Returns all transfer sessions for the specified edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7096,15 +6494,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/edge-nodes/{id}/transfers/{transferId}:
+  /api/v1/edge-nodes/{id}/transfers/{transfer_id}:
     get:
       operationId: getTransfer
       tags: [Edge Nodes]
       summary: Get transfer session
       description: Returns detailed information about a single transfer session.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7113,7 +6508,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: transferId
+        - name: transfer_id
           in: path
           required: true
           description: Transfer session UUID
@@ -7134,15 +6529,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/edge-nodes/{id}/transfers/{transferId}/manifest:
+  /api/v1/edge-nodes/{id}/transfers/{transfer_id}/manifest:
     get:
       operationId: getTransferManifest
       tags: [Edge Nodes]
       summary: Get chunk manifest
       description: Returns the chunk manifest for a transfer session, listing all chunks with their sizes and checksums.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7151,7 +6543,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: transferId
+        - name: transfer_id
           in: path
           required: true
           description: Transfer session UUID
@@ -7172,15 +6564,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/edge-nodes/{id}/transfers/{transferId}/chunks/{chunkIndex}:
+  /api/v1/edge-nodes/{id}/transfers/{transfer_id}/chunks/{chunk_index}:
     put:
       operationId: uploadChunk
       tags: [Edge Nodes]
       summary: Upload chunk
       description: Uploads a single binary chunk for the specified transfer session.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7189,14 +6578,14 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: transferId
+        - name: transfer_id
           in: path
           required: true
           description: Transfer session UUID
           schema:
             type: string
             format: uuid
-        - name: chunkIndex
+        - name: chunk_index
           in: path
           required: true
           description: Zero-based chunk index
@@ -7227,9 +6616,6 @@ paths:
       tags: [Edge Nodes]
       summary: Download chunk
       description: Downloads a single binary chunk from the specified transfer session.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7238,14 +6624,14 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: transferId
+        - name: transfer_id
           in: path
           required: true
           description: Transfer session UUID
           schema:
             type: string
             format: uuid
-        - name: chunkIndex
+        - name: chunk_index
           in: path
           required: true
           description: Zero-based chunk index
@@ -7267,15 +6653,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/edge-nodes/{id}/transfers/{transferId}/complete:
+  /api/v1/edge-nodes/{id}/transfers/{transfer_id}/complete:
     post:
       operationId: completeTransfer
       tags: [Edge Nodes]
       summary: Complete transfer
       description: Marks a transfer session as complete after all chunks have been uploaded and verified.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7284,7 +6667,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: transferId
+        - name: transfer_id
           in: path
           required: true
           description: Transfer session UUID
@@ -7307,15 +6690,12 @@ paths:
         "500":
           $ref: "#/components/responses/InternalServerError"
 
-  /api/v1/edge-nodes/{id}/transfers/{transferId}/cancel:
+  /api/v1/edge-nodes/{id}/transfers/{transfer_id}/cancel:
     post:
       operationId: cancelTransfer
       tags: [Edge Nodes]
       summary: Cancel transfer
       description: Cancels an in-progress transfer session and cleans up any uploaded chunks.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7324,7 +6704,7 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: transferId
+        - name: transfer_id
           in: path
           required: true
           description: Transfer session UUID
@@ -7351,9 +6731,6 @@ paths:
       tags: [Edge Nodes]
       summary: Get cache stats
       description: Returns cache contents and usage statistics for the specified edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7392,9 +6769,6 @@ paths:
       tags: [Edge Nodes]
       summary: Purge cache
       description: Purges all cached content from the specified edge node.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7421,9 +6795,6 @@ paths:
       tags: [Edge Nodes]
       summary: Assign repositories
       description: Assigns one or more repositories to the edge node for caching and distribution.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7473,24 +6844,13 @@ paths:
       tags: [Admin]
       summary: Trigger garbage collection
       description: Triggers a garbage collection pass to reclaim storage from orphaned blobs and deleted artifacts.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Garbage collection started
           content:
             application/json:
               schema:
-                type: object
-                required: [task_id, status]
-                properties:
-                  task_id:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                    example: started
+                $ref: "#/components/schemas/AsyncTaskResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -7504,24 +6864,13 @@ paths:
       tags: [Admin]
       summary: Reindex search
       description: Triggers a full reindex of the search index from the database. Use after bulk imports or data recovery.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "202":
           description: Reindex started
           content:
             application/json:
               schema:
-                type: object
-                required: [task_id, status]
-                properties:
-                  task_id:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                    example: started
+                $ref: "#/components/schemas/AsyncTaskResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -7535,9 +6884,6 @@ paths:
       tags: [Admin]
       summary: Download backup
       description: Downloads the backup archive file.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7569,9 +6915,6 @@ paths:
       tags: [Admin]
       summary: Query audit log
       description: Returns a paginated audit log with optional filtering by user, action, and date range.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: user_id
           in: query
@@ -7610,31 +6953,7 @@ paths:
                   items:
                     type: array
                     items:
-                      type: object
-                      required: [id, user_id, action, timestamp]
-                      properties:
-                        id:
-                          type: string
-                          format: uuid
-                        user_id:
-                          type: string
-                          format: uuid
-                        username:
-                          type: string
-                        action:
-                          type: string
-                        resource_type:
-                          type: string
-                        resource_id:
-                          type: string
-                        details:
-                          type: object
-                          additionalProperties: true
-                        ip_address:
-                          type: string
-                        timestamp:
-                          type: string
-                          format: date-time
+                      $ref: "#/components/schemas/AuditLogEntry"
                   pagination:
                     $ref: "#/components/schemas/Pagination"
         "400":
@@ -7656,9 +6975,6 @@ paths:
       tags: [Migration]
       summary: Retry failed item
       description: Retries a previously failed migration item.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7702,9 +7018,6 @@ paths:
       tags: [Builds]
       summary: List build artifacts
       description: Returns all artifacts associated with the specified build.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -7733,17 +7046,14 @@ paths:
   # Packages Endpoints
   # =============================================================================
 
-  /api/v1/repositories/{repositoryKey}/tree:
+  /api/v1/repositories/{repository_key}/tree:
     get:
       operationId: getRepositoryTree
       tags: [Tree]
       summary: Get repository file tree
       description: Returns a hierarchical file tree for the specified repository with optional path scoping and depth limiting.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
-        - name: repositoryKey
+        - name: repository_key
           in: path
           required: true
           description: Repository key
@@ -7788,9 +7098,6 @@ paths:
       tags: [SBOM]
       summary: Generate SBOM for artifact
       description: Generates a Software Bill of Materials for the specified artifact in the requested format. If an SBOM already exists, returns the cached version unless force_regenerate is set.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -7834,9 +7141,6 @@ paths:
       tags: [SBOM]
       summary: List SBOMs
       description: Returns a list of generated SBOMs with optional filtering by artifact, repository, or format.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: artifact_id
           in: query
@@ -7889,9 +7193,6 @@ paths:
       tags: [SBOM]
       summary: Get SBOM with content
       description: Returns full SBOM details including the raw SBOM document content as a JSON object.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: SBOM with content.
@@ -7920,9 +7221,6 @@ paths:
       tags: [SBOM]
       summary: List SBOM components
       description: Returns the list of software components declared in the specified SBOM, including package URLs, licenses, and checksums.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of SBOM components.
@@ -7957,9 +7255,6 @@ paths:
       tags: [SBOM]
       summary: Convert SBOM format
       description: Converts an existing SBOM to a different format (e.g. CycloneDX to SPDX or vice versa) and stores the result as a new SBOM record.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8007,9 +7302,6 @@ paths:
       tags: [SBOM]
       summary: Get CVE history for artifact
       description: Returns the chronological list of CVEs detected across all SBOM scans for the given artifact, including current status and acknowledgement details.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: CVE history entries.
@@ -8044,9 +7336,6 @@ paths:
       tags: [SBOM]
       summary: Update CVE status
       description: Updates the triage status of a CVE history entry, optionally recording a reason for the status change.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8083,9 +7372,6 @@ paths:
       tags: [SBOM]
       summary: Get CVE trends
       description: Returns aggregated CVE trend data over a configurable time window, broken down by severity. Useful for dashboards and reporting.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: repository_id
           in: query
@@ -8160,9 +7446,6 @@ paths:
       tags: [SBOM]
       summary: List license policies
       description: Returns all configured license compliance policies, optionally filtered by repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of license policies.
@@ -8186,9 +7469,6 @@ paths:
       tags: [SBOM]
       summary: Create or update license policy
       description: Creates a new license compliance policy or updates an existing one. Policies define which licenses are allowed or denied for artifacts in a repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8258,9 +7538,6 @@ paths:
       tags: [SBOM]
       summary: Get license policy
       description: Returns full details of a single license compliance policy.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: License policy details.
@@ -8280,9 +7557,6 @@ paths:
       tags: [SBOM]
       summary: Delete license policy
       description: Permanently removes a license compliance policy. This action cannot be undone.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "204":
           description: License policy deleted.
@@ -8301,9 +7575,6 @@ paths:
       tags: [SBOM]
       summary: Check license compliance
       description: Evaluates a set of SPDX license identifiers against all active license policies (or those scoped to a specific repository) and returns the compliance result.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8354,9 +7625,6 @@ paths:
       tags: [Repositories]
       summary: Bulk promote artifacts
       description: Promotes multiple artifacts from the source repository to a target repository in a single operation. Optionally runs promotion policies before executing.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8420,9 +7688,6 @@ paths:
       tags: [Repositories]
       summary: Promote single artifact
       description: Promotes a single artifact from the source repository to a target repository. Runs promotion policies unless explicitly skipped.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8473,9 +7738,6 @@ paths:
       tags: [Repositories]
       summary: Get promotion history
       description: Returns a paginated list of promotion events for the specified repository, including policy evaluation results and operator notes.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: artifact_id
           in: query
@@ -8518,9 +7780,6 @@ paths:
       tags: [Dependency Track]
       summary: Get Dependency-Track integration status
       description: Returns the current status of the Dependency-Track integration including whether it is enabled and healthy.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Dependency-Track status
@@ -8539,9 +7798,6 @@ paths:
       tags: [Dependency Track]
       summary: List Dependency-Track projects
       description: Returns all projects tracked in the Dependency-Track integration.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of Dependency-Track projects
@@ -8562,9 +7818,6 @@ paths:
       tags: [Dependency Track]
       summary: Get Dependency-Track project
       description: Returns a single Dependency-Track project by UUID, including its associated findings.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: project_uuid
           in: path
@@ -8593,9 +7846,6 @@ paths:
       tags: [Dependency Track]
       summary: List project findings
       description: Returns all vulnerability findings for the specified Dependency-Track project.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: project_uuid
           in: path
@@ -8626,9 +7876,6 @@ paths:
       tags: [Dependency Track]
       summary: List project components
       description: Returns all components (dependencies) for the specified Dependency-Track project.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: project_uuid
           in: path
@@ -8659,9 +7906,6 @@ paths:
       tags: [Dependency Track]
       summary: Get project metrics
       description: Returns the current vulnerability and policy violation metrics for the specified Dependency-Track project.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: project_uuid
           in: path
@@ -8690,9 +7934,6 @@ paths:
       tags: [Dependency Track]
       summary: Get project metrics history
       description: Returns historical vulnerability and policy violation metrics for the specified Dependency-Track project over the given number of days.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: project_uuid
           in: path
@@ -8731,9 +7972,6 @@ paths:
       tags: [Dependency Track]
       summary: Get portfolio metrics
       description: Returns aggregate vulnerability and policy violation metrics across all Dependency-Track projects.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Portfolio-wide metrics
@@ -8752,9 +7990,6 @@ paths:
       tags: [Dependency Track]
       summary: List project policy violations
       description: Returns all policy violations for the specified Dependency-Track project.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: project_uuid
           in: path
@@ -8785,9 +8020,6 @@ paths:
       tags: [Dependency Track]
       summary: Update finding analysis
       description: Updates the analysis state, justification, and suppression status for a specific vulnerability finding in Dependency-Track.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8847,9 +8079,6 @@ paths:
       tags: [Dependency Track]
       summary: List Dependency-Track policies
       description: Returns all policies configured in Dependency-Track, including their conditions and associated projects.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of Dependency-Track policies
@@ -8874,9 +8103,6 @@ paths:
       tags: [Auth]
       summary: Generate TOTP secret
       description: Generates a new TOTP secret and QR code URL for the authenticated user to configure their authenticator app.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: TOTP setup details including secret and QR code URL
@@ -8897,9 +8123,6 @@ paths:
       tags: [Auth]
       summary: Enable TOTP two-factor authentication
       description: Verifies the provided TOTP code against the previously generated secret and enables TOTP for the authenticated user. Returns one-time backup codes.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -8933,9 +8156,6 @@ paths:
       tags: [Auth]
       summary: Disable TOTP two-factor authentication
       description: Disables TOTP two-factor authentication for the authenticated user after verifying their password and a valid TOTP code.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -9049,9 +8269,6 @@ paths:
       tags: [SSO Admin]
       summary: List OIDC configurations
       description: Returns all configured OIDC identity provider configurations. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of OIDC configurations
@@ -9073,9 +8290,6 @@ paths:
       tags: [SSO Admin]
       summary: Create OIDC configuration
       description: Creates a new OIDC identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -9106,9 +8320,6 @@ paths:
       tags: [SSO Admin]
       summary: Get OIDC configuration
       description: Returns a single OIDC identity provider configuration by ID. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9138,9 +8349,6 @@ paths:
       tags: [SSO Admin]
       summary: Update OIDC configuration
       description: Replaces an existing OIDC identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9180,9 +8388,6 @@ paths:
       tags: [SSO Admin]
       summary: Delete OIDC configuration
       description: Permanently deletes an OIDC identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9209,9 +8414,6 @@ paths:
       tags: [SSO Admin]
       summary: Toggle OIDC configuration
       description: Enables or disables an OIDC identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9255,9 +8457,6 @@ paths:
       tags: [SSO Admin]
       summary: List LDAP configurations
       description: Returns all configured LDAP directory configurations. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of LDAP configurations
@@ -9279,9 +8478,6 @@ paths:
       tags: [SSO Admin]
       summary: Create LDAP configuration
       description: Creates a new LDAP directory configuration for user authentication and group synchronization. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -9312,9 +8508,6 @@ paths:
       tags: [SSO Admin]
       summary: Get LDAP configuration
       description: Returns a single LDAP directory configuration by ID. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9344,9 +8537,6 @@ paths:
       tags: [SSO Admin]
       summary: Update LDAP configuration
       description: Replaces an existing LDAP directory configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9386,9 +8576,6 @@ paths:
       tags: [SSO Admin]
       summary: Delete LDAP configuration
       description: Permanently deletes an LDAP directory configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9415,9 +8602,6 @@ paths:
       tags: [SSO Admin]
       summary: Toggle LDAP configuration
       description: Enables or disables an LDAP directory configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9461,9 +8645,6 @@ paths:
       tags: [SSO Admin]
       summary: Test LDAP configuration
       description: Tests the connectivity and authentication of an LDAP directory configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9494,9 +8675,6 @@ paths:
       tags: [SSO Admin]
       summary: List SAML configurations
       description: Returns all configured SAML identity provider configurations. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of SAML configurations
@@ -9518,9 +8696,6 @@ paths:
       tags: [SSO Admin]
       summary: Create SAML configuration
       description: Creates a new SAML identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -9551,9 +8726,6 @@ paths:
       tags: [SSO Admin]
       summary: Get SAML configuration
       description: Returns a single SAML identity provider configuration by ID. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9583,9 +8755,6 @@ paths:
       tags: [SSO Admin]
       summary: Update SAML configuration
       description: Replaces an existing SAML identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9625,9 +8794,6 @@ paths:
       tags: [SSO Admin]
       summary: Delete SAML configuration
       description: Permanently deletes a SAML identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9654,9 +8820,6 @@ paths:
       tags: [SSO Admin]
       summary: Toggle SAML configuration
       description: Enables or disables a SAML identity provider configuration. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -9700,9 +8863,6 @@ paths:
       tags: [SSO Admin]
       summary: List all SSO providers
       description: Returns a unified list of all configured SSO providers across OIDC, LDAP, and SAML. Requires admin privileges.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of all SSO providers
@@ -9765,11 +8925,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  redirect_url:
-                    type: string
-                    format: uri
+                $ref: "#/components/schemas/SsoRedirectResponse"
         "302":
           description: Redirect to OIDC identity provider
           headers:
@@ -9816,11 +8972,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  redirect_url:
-                    type: string
-                    format: uri
+                $ref: "#/components/schemas/SsoRedirectResponse"
         "302":
           description: Redirect to application with session code
           headers:
@@ -9905,11 +9057,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  redirect_url:
-                    type: string
-                    format: uri
+                $ref: "#/components/schemas/SsoRedirectResponse"
         "302":
           description: Redirect to SAML identity provider
           headers:
@@ -9958,11 +9106,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  redirect_url:
-                    type: string
-                    format: uri
+                $ref: "#/components/schemas/SsoRedirectResponse"
         "302":
           description: Redirect to application with session code
           headers:
@@ -10019,9 +9163,6 @@ paths:
       tags: [Analytics]
       summary: Get storage trend
       description: Returns a time-series of daily storage snapshots within the requested date range. Useful for charting total storage, artifact counts, and user growth over time.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: from
           in: query
@@ -10057,9 +9198,6 @@ paths:
       tags: [Analytics]
       summary: Get storage breakdown by repository
       description: Returns per-repository storage usage including artifact counts, byte totals, download counts, and the timestamp of the most recent upload.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Array of per-repository storage breakdowns.
@@ -10080,9 +9218,6 @@ paths:
       tags: [Analytics]
       summary: Get storage growth summary
       description: Returns an aggregate growth summary comparing the start and end of the requested period, including absolute and percentage changes in storage and artifact counts.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: from
           in: query
@@ -10116,9 +9251,6 @@ paths:
       tags: [Analytics]
       summary: List stale artifacts
       description: Returns artifacts that have not been downloaded within the specified number of days, ordered by staleness descending. Useful for identifying cleanup candidates.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: days
           in: query
@@ -10155,9 +9287,6 @@ paths:
       tags: [Analytics]
       summary: Get downloads trend
       description: Returns a daily time-series of download counts within the requested date range, suitable for charting download activity over time.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: from
           in: query
@@ -10201,9 +9330,6 @@ paths:
       tags: [Analytics]
       summary: Get repository trend
       description: Returns a daily time-series of snapshots for a single repository within the requested date range, including artifact counts, storage bytes, and download counts.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: from
           in: query
@@ -10241,9 +9367,6 @@ paths:
       tags: [Analytics]
       summary: Capture analytics snapshot
       description: Captures a point-in-time snapshot of the current system state including repository, artifact, storage, download, and user totals. The snapshot is persisted and returned.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "201":
           description: Snapshot captured successfully.
@@ -10266,9 +9389,6 @@ paths:
       tags: [Monitoring]
       summary: Get health check log
       description: Returns recent health check entries, optionally filtered by service name. Each entry captures the result of a periodic health probe including status, response time, and any error messages.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: service
           in: query
@@ -10304,9 +9424,6 @@ paths:
       tags: [Monitoring]
       summary: Get alert states
       description: Returns the current alert state for every monitored service, including consecutive failure counts, last alert timestamp, and suppression windows.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Array of service alert states.
@@ -10327,9 +9444,6 @@ paths:
       tags: [Monitoring]
       summary: Suppress alerts for a service
       description: Suppresses alert notifications for the specified service until the given timestamp. Existing alerts are not cleared, but no new notifications will be sent until the suppression window expires.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -10369,9 +9483,6 @@ paths:
       tags: [Monitoring]
       summary: Run immediate health check
       description: Triggers an immediate health check against all monitored services and returns the results. This bypasses the normal polling interval and records the results in the health log.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Health check results for all monitored services.
@@ -10392,9 +9503,6 @@ paths:
         - Telemetry
       summary: Get telemetry settings
       description: Retrieve the current telemetry configuration including data collection preferences and scrubbing levels.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Current telemetry settings.
@@ -10414,9 +9522,6 @@ paths:
         - Telemetry
       summary: Update telemetry settings
       description: Replace the current telemetry configuration with the provided settings.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -10448,9 +9553,6 @@ paths:
         - Telemetry
       summary: List crash reports
       description: Retrieve a paginated list of crash reports ordered by most recent occurrence.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: page
           in: query
@@ -10492,9 +9594,6 @@ paths:
         - Telemetry
       summary: List pending crash reports
       description: Retrieve all crash reports that have not yet been submitted for review.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: List of pending crash reports.
@@ -10518,9 +9617,6 @@ paths:
         - Telemetry
       summary: Get a crash report
       description: Retrieve a single crash report by its unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10550,9 +9646,6 @@ paths:
         - Telemetry
       summary: Delete a crash report
       description: Permanently remove a crash report from the system.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10580,9 +9673,6 @@ paths:
         - Telemetry
       summary: Submit crash reports
       description: Mark the specified crash reports as submitted to the telemetry service.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -10629,9 +9719,6 @@ paths:
         - Lifecycle
       summary: List lifecycle policies
       description: Retrieve all lifecycle policies, optionally filtered by repository.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: repository_id
           in: query
@@ -10663,9 +9750,6 @@ paths:
         - Lifecycle
       summary: Create a lifecycle policy
       description: Create a new lifecycle policy for automated artifact retention and cleanup.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -10723,9 +9807,6 @@ paths:
         - Lifecycle
       summary: Get a lifecycle policy
       description: Retrieve a single lifecycle policy by its unique identifier.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10755,9 +9836,6 @@ paths:
         - Lifecycle
       summary: Update a lifecycle policy
       description: Partially update an existing lifecycle policy. Only provided fields are modified.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10813,9 +9891,6 @@ paths:
         - Lifecycle
       summary: Delete a lifecycle policy
       description: Permanently remove a lifecycle policy. Running executions are not affected.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10843,9 +9918,6 @@ paths:
         - Lifecycle
       summary: Execute a lifecycle policy
       description: Trigger an immediate execution of the specified lifecycle policy. Matched artifacts will be permanently removed.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10877,9 +9949,6 @@ paths:
         - Lifecycle
       summary: Preview a lifecycle policy
       description: Perform a dry-run execution of the specified lifecycle policy. No artifacts are modified or removed.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       parameters:
         - name: id
           in: path
@@ -10911,9 +9980,6 @@ paths:
         - Lifecycle
       summary: Execute all enabled lifecycle policies
       description: Trigger an immediate execution of every enabled lifecycle policy in priority order. Matched artifacts will be permanently removed.
-      security:
-        - bearerAuth: []
-        - apiKeyAuth: []
       responses:
         "200":
           description: Results of each policy execution.
@@ -10969,85 +10035,144 @@ components:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
-              details:
-                type: object
+            $ref: "#/components/schemas/ErrorResponse"
     Unauthorized:
       description: Unauthorized
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
+            $ref: "#/components/schemas/ErrorResponse"
     Forbidden:
       description: Forbidden
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
+            $ref: "#/components/schemas/ErrorResponse"
     NotFound:
       description: Not found
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
+            $ref: "#/components/schemas/ErrorResponse"
     Conflict:
       description: Conflict
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
+            $ref: "#/components/schemas/ErrorResponse"
     UnprocessableEntity:
       description: Unprocessable entity
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
-              details:
-                type: object
+            $ref: "#/components/schemas/ErrorResponse"
 
     InternalServerError:
       description: Internal server error
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - error
-            properties:
-              error:
-                type: string
+            $ref: "#/components/schemas/ErrorResponse"
 
   schemas:
+
+    SsoRedirectResponse:
+      type: object
+      properties:
+        redirect_url:
+          type: string
+          format: uri
+
+    AsyncTaskResponse:
+      type: object
+      required:
+        - task_id
+        - status
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          example: started
+
+    TestResultResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    SigningRepositoryConfig:
+      type: object
+      properties:
+        enabled:
+          type: boolean
+        key_id:
+          type: string
+          format: uuid
+        sign_metadata:
+          type: boolean
+        sign_packages:
+          type: boolean
+
+    GroupMembersRequest:
+      type: object
+      required:
+        - user_ids
+      properties:
+        user_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+
+    AuditLogEntry:
+      type: object
+      required:
+        - id
+        - user_id
+        - action
+        - timestamp
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        action:
+          type: string
+        resource_type:
+          type: string
+        resource_id:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        ip_address:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+
     ComponentHealth:
       type: object
       required:
