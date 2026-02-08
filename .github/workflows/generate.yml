@@ -219,9 +219,12 @@ jobs:
           git clone "https://x-access-token:${{ secrets.SWIFT_SDK_TOKEN }}@github.com/artifact-keeper/artifact-keeper-swift-sdk.git" /tmp/swift-sdk
           # Clear old contents (keep .git)
           find /tmp/swift-sdk -maxdepth 1 ! -name '.git' ! -path /tmp/swift-sdk -exec rm -rf {} +
-          # Copy Package.swift and Sources/
+          # Copy package contents + CI + metadata
           cp sdk/swift/Package.swift /tmp/swift-sdk/
+          cp sdk/swift/LICENSE /tmp/swift-sdk/
+          cp sdk/swift/README.md /tmp/swift-sdk/
           cp -R sdk/swift/Sources /tmp/swift-sdk/
+          cp -R sdk/swift/.github /tmp/swift-sdk/
           cd /tmp/swift-sdk
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"

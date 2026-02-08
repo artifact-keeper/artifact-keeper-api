@@ -1,0 +1,32 @@
+name: Validate Swift Package
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+jobs:
+  validate:
+    name: Validate Package (${{ matrix.swift }})
+    runs-on: macos-15
+    strategy:
+      matrix:
+        swift: ["5.9", "6.0"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: ${{ matrix.swift }}
+
+      - name: Verify Package.swift is valid
+        run: swift package dump-package | python3 -c "import sys,json; json.load(sys.stdin); print('Valid JSON')"
+
+      - name: Resolve dependencies
+        run: swift package resolve
+
+      - name: Build
+        run: swift build
+
+      - name: Build for release
+        run: swift build -c release
