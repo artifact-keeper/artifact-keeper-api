@@ -691,9 +691,8 @@ paths:
                   name:
                     type: string
                   expires_at:
-                    type: string
+                    type: ["string", "null"]
                     format: date-time
-                    nullable: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -999,10 +998,9 @@ paths:
                 is_public:
                   type: boolean
                 quota_bytes:
-                  type: integer
+                  type: ["integer", "null"]
                   format: int64
                   description: Storage quota in bytes. Null for unlimited.
-                  nullable: true
       responses:
         "200":
           description: Repository updated
@@ -1384,9 +1382,8 @@ paths:
                     format: int64
                     example: 982
                   last_downloaded_at:
-                    type: string
+                    type: ["string", "null"]
                     format: date-time
-                    nullable: true
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1998,10 +1995,9 @@ paths:
                   enum: [repository, global]
                   example: repository
                 resource_id:
-                  type: string
+                  type: ["string", "null"]
                   format: uuid
                   description: The resource to grant access to. Required when resource_type is not global.
-                  nullable: true
                 actions:
                   type: array
                   items:
@@ -2323,9 +2319,8 @@ paths:
                   items:
                     type: string
                 repository_id:
-                  type: string
+                  type: ["string", "null"]
                   format: uuid
-                  nullable: true
                 is_enabled:
                   type: boolean
                 secret:
@@ -6551,8 +6546,7 @@ paths:
                   memory_usage_bytes:
                     type: integer
                   last_error:
-                    type: string
-                    nullable: true
+                    type: ["string", "null"]
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
@@ -6701,8 +6695,7 @@ paths:
                         valid:
                           type: boolean
                         reason:
-                          type: string
-                          nullable: true
+                          type: ["string", "null"]
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -6855,9 +6848,8 @@ paths:
                   low_count:
                     type: integer
                   last_scan_at:
-                    type: string
+                    type: ["string", "null"]
                     format: date-time
-                    nullable: true
         "401":
           $ref: "#/components/responses/Unauthorized"
         "500":
