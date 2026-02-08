@@ -217,31 +217,26 @@ jobs:
       - name: Publish to SPM repo
         if: ${{ !inputs.dry_run }}
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SWIFT_SDK_TOKEN: ${{ secrets.SWIFT_SDK_TOKEN }}
         run: |
-          VERSION="${{ needs.version.outputs.version }}"
           TAG="${{ github.ref_name }}"
-          REPO="artifact-keeper/artifact-keeper-swift-sdk"
+          REMOTE="https://x-access-token:${SWIFT_SDK_TOKEN}@github.com/artifact-keeper/artifact-keeper-swift-sdk.git"
 
-          # Clone or init the target repo
-          gh repo clone "$REPO" spm-repo 2>/dev/null || {
-            mkdir spm-repo && cd spm-repo && git init
-            git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git"
-            cd ..
-          }
-
-          # Clear and copy SDK contents
-          cd spm-repo
+          # Init a fresh repo with the SDK contents
+          mkdir spm-repo && cd spm-repo
+          git init
+          git remote add origin "$REMOTE"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          find . -not -path './.git/*' -not -path './.git' -not -path '.' -delete
+
+          # Copy SDK contents
           cp -r ../sdk/swift/Package.swift .
           cp -r ../sdk/swift/Sources .
 
-          # Commit and tag
+          # Commit, tag, and push
           git add -A
-          git commit -m "Release ${TAG}" || echo "No changes to commit"
-          git tag -f "$TAG"
+          git commit -m "Release ${TAG}"
+          git tag "$TAG"
           git push origin HEAD:main --force
           git push origin "$TAG" --force
 
