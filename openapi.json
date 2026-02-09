@@ -10543,61 +10543,31 @@
                         }
                     },
                     {
-                        "name": "repository_id",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": [
-                                "string",
-                                "null"
-                            ],
-                            "format": "uuid"
-                        }
-                    },
-                    {
-                        "name": "artifact_id",
-                        "in": "query",
-                        "required": false,
-                        "schema": {
-                            "type": [
-                                "string",
-                                "null"
-                            ],
-                            "format": "uuid"
-                        }
-                    },
-                    {
                         "name": "status",
                         "in": "query",
+                        "description": "Filter by scan status",
                         "required": false,
                         "schema": {
-                            "type": [
-                                "string",
-                                "null"
-                            ]
+                            "type": "string"
                         }
                     },
                     {
                         "name": "page",
                         "in": "query",
+                        "description": "Page number (default: 1)",
                         "required": false,
                         "schema": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
+                            "type": "integer",
                             "format": "int64"
                         }
                     },
                     {
                         "name": "per_page",
                         "in": "query",
+                        "description": "Items per page (default: 20, max: 100)",
                         "required": false,
                         "schema": {
-                            "type": [
-                                "integer",
-                                "null"
-                            ],
+                            "type": "integer",
                             "format": "int64"
                         }
                     }

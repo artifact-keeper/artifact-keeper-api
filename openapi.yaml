@@ -1923,8 +1923,7 @@ paths:
     post:
       tags:
       - auth
-      summary: 'Create a short-lived, single-use download/stream ticket for the current
-        user.
+      summary: 'Create a short-lived, single-use download/stream ticket for the current user.
 
         The ticket can be passed as a `?ticket=` query parameter on endpoints that
 
@@ -2013,8 +2012,7 @@ paths:
     post:
       tags:
       - auth
-      summary: Disable TOTP for the authenticated user (requires password and current
-        TOTP code)
+      summary: Disable TOTP for the authenticated user (requires password and current TOTP code)
       operationId: disable_totp
       requestBody:
         content:
@@ -2085,8 +2083,7 @@ paths:
     post:
       tags:
       - auth
-      summary: Verify TOTP code during login (exchanges totp_token + code for full
-        auth tokens)
+      summary: Verify TOTP code during login (exchanges totp_token + code for full auth tokens)
       operationId: verify_totp
       requestBody:
         content:
@@ -6489,44 +6486,25 @@ paths:
         schema:
           type: string
           format: uuid
-      - name: repository_id
-        in: query
-        required: false
-        schema:
-          type:
-          - string
-          - 'null'
-          format: uuid
-      - name: artifact_id
-        in: query
-        required: false
-        schema:
-          type:
-          - string
-          - 'null'
-          format: uuid
       - name: status
         in: query
+        description: Filter by scan status
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
       - name: page
         in: query
+        description: 'Page number (default: 1)'
         required: false
         schema:
-          type:
-          - integer
-          - 'null'
+          type: integer
           format: int64
       - name: per_page
         in: query
+        description: 'Items per page (default: 20, max: 100)'
         required: false
         schema:
-          type:
-          - integer
-          - 'null'
+          type: integer
           format: int64
       responses:
         '200':
@@ -11080,8 +11058,7 @@ components:
           format: date-time
     LifecyclePolicy:
       type: object
-      description: A lifecycle policy attached to a repository (or global if repository_id
-        is NULL).
+      description: A lifecycle policy attached to a repository (or global if repository_id is NULL).
       required:
       - id
       - name
