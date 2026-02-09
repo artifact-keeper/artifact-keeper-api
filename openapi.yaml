@@ -441,7 +441,7 @@ paths:
       tags:
       - lifecycle
       summary: GET /api/v1/admin/lifecycle
-      operationId: list_policies
+      operationId: list_lifecycle_policies
       parameters:
       - name: repository_id
         in: query
@@ -466,7 +466,7 @@ paths:
       tags:
       - lifecycle
       summary: POST /api/v1/admin/lifecycle
-      operationId: create_policy
+      operationId: create_lifecycle_policy
       requestBody:
         content:
           application/json:
@@ -504,7 +504,7 @@ paths:
       tags:
       - lifecycle
       summary: GET /api/v1/admin/lifecycle/:id
-      operationId: get_policy
+      operationId: get_lifecycle_policy
       parameters:
       - name: id
         in: path
@@ -526,7 +526,7 @@ paths:
       tags:
       - lifecycle
       summary: DELETE /api/v1/admin/lifecycle/:id
-      operationId: delete_policy
+      operationId: delete_lifecycle_policy
       parameters:
       - name: id
         in: path
@@ -544,7 +544,7 @@ paths:
       tags:
       - lifecycle
       summary: PATCH /api/v1/admin/lifecycle/:id
-      operationId: update_policy
+      operationId: update_lifecycle_policy
       parameters:
       - name: id
         in: path
@@ -1192,7 +1192,7 @@ paths:
       tags:
       - sso
       summary: List all enabled SSO providers (admin view)
-      operationId: list_providers
+      operationId: list_sso_providers_admin
       responses:
         '200':
           description: List of enabled SSO providers
@@ -1536,7 +1536,7 @@ paths:
       tags:
       - telemetry
       summary: GET /api/v1/admin/telemetry/settings
-      operationId: get_settings
+      operationId: get_telemetry_settings
       responses:
         '200':
           description: Current telemetry settings
@@ -1550,7 +1550,7 @@ paths:
       tags:
       - telemetry
       summary: POST /api/v1/admin/telemetry/settings
-      operationId: update_settings
+      operationId: update_telemetry_settings
       requestBody:
         content:
           application/json:
@@ -1920,7 +1920,8 @@ paths:
     post:
       tags:
       - auth
-      summary: 'Create a short-lived, single-use download/stream ticket for the current user.
+      summary: 'Create a short-lived, single-use download/stream ticket for the current
+        user.
 
         The ticket can be passed as a `?ticket=` query parameter on endpoints that
 
@@ -2009,7 +2010,8 @@ paths:
     post:
       tags:
       - auth
-      summary: Disable TOTP for the authenticated user (requires password and current TOTP code)
+      summary: Disable TOTP for the authenticated user (requires password and current
+        TOTP code)
       operationId: disable_totp
       requestBody:
         content:
@@ -2080,7 +2082,8 @@ paths:
     post:
       tags:
       - auth
-      summary: Verify TOTP code during login (exchanges totp_token + code for full auth tokens)
+      summary: Verify TOTP code during login (exchanges totp_token + code for full
+        auth tokens)
       operationId: verify_totp
       requestBody:
         content:
@@ -2338,7 +2341,7 @@ paths:
       tags:
       - security
       summary: List all policies
-      operationId: list_policies
+      operationId: list_dependency_track_policies
       responses:
         '200':
           description: List of policies
@@ -3971,7 +3974,7 @@ paths:
       tags:
       - peers
       summary: GET /api/v1/peers/:id/connections
-      operationId: list_peers
+      operationId: list_peer_connections
       parameters:
       - name: id
         in: path
@@ -5399,7 +5402,7 @@ paths:
       tags:
       - repositories
       summary: Get artifact metadata
-      operationId: get_artifact_metadata
+      operationId: get_repository_artifact_metadata
       parameters:
       - name: key
         in: path
@@ -7640,7 +7643,7 @@ paths:
       tags:
       - users
       summary: Create API token
-      operationId: create_api_token
+      operationId: create_user_api_token
       parameters:
       - name: id
         in: path
@@ -7671,7 +7674,7 @@ paths:
       tags:
       - users
       summary: Revoke API token
-      operationId: revoke_api_token
+      operationId: revoke_user_api_token
       parameters:
       - name: id
         in: path
@@ -11074,7 +11077,8 @@ components:
           format: date-time
     LifecyclePolicy:
       type: object
-      description: A lifecycle policy attached to a repository (or global if repository_id is NULL).
+      description: A lifecycle policy attached to a repository (or global if repository_id
+        is NULL).
       required:
       - id
       - name
@@ -14478,51 +14482,55 @@ components:
       scheme: bearer
       bearerFormat: JWT
 tags:
+- name: auth
+  description: Authentication and token management
+- name: repositories
+  description: Repository CRUD and artifact operations
+- name: artifacts
+  description: Standalone artifact access by ID
+- name: users
+  description: User management and API tokens
+- name: groups
+  description: User group management
+- name: permissions
+  description: RBAC permission management
+- name: builds
+  description: Build management and tracking
+- name: packages
+  description: Package discovery and version listing
+- name: search
+  description: Full-text search and filtering
+- name: promotion
+  description: Staging-to-release artifact promotion
+- name: security
+  description: Security policies and scanning
+- name: sbom
+  description: Software Bill of Materials
+- name: signing
+  description: Signing key management
+- name: plugins
+  description: WASM plugin lifecycle
+- name: webhooks
+  description: Event webhook management
+- name: peers
+  description: Peer replication and sync
 - name: admin
   description: System administration
 - name: analytics
   description: Storage and download analytics
-- name: artifacts
-  description: Standalone artifact access by ID
-- name: auth
-  description: Authentication and token management
-- name: builds
-  description: Build management and tracking
-- name: groups
-  description: User group management
+- name: lifecycle
+  description: Retention policies and cleanup
+- name: monitoring
+  description: Health monitoring and alerts
+- name: telemetry
+  description: Crash reporting and telemetry
+- name: sso
+  description: Single sign-on configuration
+- name: migration
+  description: Data migration and import
 - name: health
   description: Health and readiness checks
 - name: lifecycle
-  description: Retention policies and cleanup
-- name: migration
-  description: Data migration and import
-- name: monitoring
-  description: Health monitoring and alerts
-- name: packages
-  description: Package discovery and version listing
-- name: peers
-  description: Peer replication and sync
-- name: permissions
-  description: RBAC permission management
-- name: plugins
-  description: WASM plugin lifecycle
-- name: promotion
-  description: Staging-to-release artifact promotion
-- name: repositories
-  description: Repository CRUD and artifact operations
-- name: sbom
-  description: Software Bill of Materials
-- name: search
-  description: Full-text search and filtering
-- name: security
-  description: Security policies and scanning
-- name: signing
-  description: Signing key management
-- name: sso
-  description: Single sign-on configuration
+  description: Lifecycle policy management
 - name: telemetry
-  description: Crash reporting and telemetry
-- name: users
-  description: User management and API tokens
-- name: webhooks
-  description: Event webhook management
+  description: Telemetry and crash reporting

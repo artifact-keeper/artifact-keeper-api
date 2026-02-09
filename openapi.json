@@ -718,7 +718,7 @@
                     "lifecycle"
                 ],
                 "summary": "GET /api/v1/admin/lifecycle",
-                "operationId": "list_policies",
+                "operationId": "list_lifecycle_policies",
                 "parameters": [
                     {
                         "name": "repository_id",
@@ -759,7 +759,7 @@
                     "lifecycle"
                 ],
                 "summary": "POST /api/v1/admin/lifecycle",
-                "operationId": "create_policy",
+                "operationId": "create_lifecycle_policy",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -824,7 +824,7 @@
                     "lifecycle"
                 ],
                 "summary": "GET /api/v1/admin/lifecycle/:id",
-                "operationId": "get_policy",
+                "operationId": "get_lifecycle_policy",
                 "parameters": [
                     {
                         "name": "id",
@@ -860,7 +860,7 @@
                     "lifecycle"
                 ],
                 "summary": "DELETE /api/v1/admin/lifecycle/:id",
-                "operationId": "delete_policy",
+                "operationId": "delete_lifecycle_policy",
                 "parameters": [
                     {
                         "name": "id",
@@ -889,7 +889,7 @@
                     "lifecycle"
                 ],
                 "summary": "PATCH /api/v1/admin/lifecycle/:id",
-                "operationId": "update_policy",
+                "operationId": "update_lifecycle_policy",
                 "parameters": [
                     {
                         "name": "id",
@@ -1962,7 +1962,7 @@
                     "sso"
                 ],
                 "summary": "List all enabled SSO providers (admin view)",
-                "operationId": "list_providers",
+                "operationId": "list_sso_providers_admin",
                 "responses": {
                     "200": {
                         "description": "List of enabled SSO providers",
@@ -2533,7 +2533,7 @@
                     "telemetry"
                 ],
                 "summary": "GET /api/v1/admin/telemetry/settings",
-                "operationId": "get_settings",
+                "operationId": "get_telemetry_settings",
                 "responses": {
                     "200": {
                         "description": "Current telemetry settings",
@@ -2557,7 +2557,7 @@
                     "telemetry"
                 ],
                 "summary": "POST /api/v1/admin/telemetry/settings",
-                "operationId": "update_settings",
+                "operationId": "update_telemetry_settings",
                 "requestBody": {
                     "content": {
                         "application/json": {
@@ -3835,7 +3835,7 @@
                     "security"
                 ],
                 "summary": "List all policies",
-                "operationId": "list_policies",
+                "operationId": "list_dependency_track_policies",
                 "responses": {
                     "200": {
                         "description": "List of policies",
@@ -6492,7 +6492,7 @@
                     "peers"
                 ],
                 "summary": "GET /api/v1/peers/:id/connections",
-                "operationId": "list_peers",
+                "operationId": "list_peer_connections",
                 "parameters": [
                     {
                         "name": "id",
@@ -8779,7 +8779,7 @@
                     "repositories"
                 ],
                 "summary": "Get artifact metadata",
-                "operationId": "get_artifact_metadata",
+                "operationId": "get_repository_artifact_metadata",
                 "parameters": [
                     {
                         "name": "key",
@@ -12439,7 +12439,7 @@
                     "users"
                 ],
                 "summary": "Create API token",
-                "operationId": "create_api_token",
+                "operationId": "create_user_api_token",
                 "parameters": [
                     {
                         "name": "id",
@@ -12490,7 +12490,7 @@
                     "users"
                 ],
                 "summary": "Revoke API token",
-                "operationId": "revoke_api_token",
+                "operationId": "revoke_user_api_token",
                 "parameters": [
                     {
                         "name": "id",
