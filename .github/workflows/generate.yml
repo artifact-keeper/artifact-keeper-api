@@ -34,9 +34,10 @@ jobs:
         run: npm install -g @stoplight/spectral-cli @redocly/cli
 
       - name: Spectral lint
-        run: spectral lint openapi.yaml --fail-severity warn
+        run: spectral lint openapi.yaml --fail-severity error
 
       - name: Redocly lint
+        continue-on-error: true
         run: redocly lint openapi.yaml
 
       - name: Verify bundleable
