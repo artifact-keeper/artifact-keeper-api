@@ -1,0 +1,8 @@
+extends:
+  - recommended
+
+rules:
+  # Auto-generated specs may not have descriptions on every operation
+  operation-description: warn
+  # Query param schemas are registered but referenced via IntoParams, not $ref
+  no-unused-components: warn

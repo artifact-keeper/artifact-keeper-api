@@ -13,6 +13,12 @@
         },
         "version": "1.0.0-rc.3"
     },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Current server"
+        }
+    ],
     "paths": {
         "/api/v1/admin/analytics/artifacts/stale": {
             "get": {
@@ -4160,7 +4166,7 @@
                 ]
             }
         },
-        "/api/v1/formats/": {
+        "/api/v1/formats": {
             "get": {
                 "tags": [
                     "plugins"
@@ -7722,7 +7728,7 @@
                 ]
             }
         },
-        "/api/v1/plugins/": {
+        "/api/v1/plugins": {
             "get": {
                 "tags": [
                     "plugins"
@@ -11838,7 +11844,7 @@
                 ]
             }
         },
-        "/api/v1/tree/": {
+        "/api/v1/tree": {
             "get": {
                 "tags": [
                     "repositories"
