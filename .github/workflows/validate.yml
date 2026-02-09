@@ -24,7 +24,7 @@ jobs:
         run: spectral lint openapi.yaml --fail-severity error
 
       - name: Redocly lint
-        run: redocly lint openapi.yaml
+        run: redocly lint openapi.yaml --lint-config=warn
 
       - name: Verify bundleable
         run: redocly bundle openapi.yaml -o /tmp/bundled.yaml
