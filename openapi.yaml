@@ -10200,22 +10200,6 @@ components:
     DtPortfolioMetrics:
       type: object
       description: Portfolio-level metrics from Dependency-Track
-      required:
-      - critical
-      - high
-      - medium
-      - low
-      - unassigned
-      - findingsTotal
-      - findingsAudited
-      - findingsUnaudited
-      - suppressions
-      - inheritedRiskScore
-      - policyViolationsFail
-      - policyViolationsWarn
-      - policyViolationsInfo
-      - policyViolationsTotal
-      - projects
       properties:
         critical:
           type: integer
@@ -10298,21 +10282,6 @@ components:
     DtProjectMetrics:
       type: object
       description: Project-level metrics from Dependency-Track
-      required:
-      - critical
-      - high
-      - medium
-      - low
-      - unassigned
-      - findingsTotal
-      - findingsAudited
-      - findingsUnaudited
-      - suppressions
-      - inheritedRiskScore
-      - policyViolationsFail
-      - policyViolationsWarn
-      - policyViolationsInfo
-      - policyViolationsTotal
       properties:
         critical:
           type: integer
