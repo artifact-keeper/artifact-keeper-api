@@ -2,4 +2,11 @@ extends:
   - recommended
 
 rules:
-  no-server-example.com: off
+  # Auto-generated specs may not have descriptions on every operation
+  operation-description: warn
+  # Auto-generated specs may not have summaries on every operation
+  operation-summary: warn
+  # Query param schemas are registered but referenced via IntoParams, not $ref
+  no-unused-components: warn
+  # Some public endpoints intentionally have no security requirement
+  security-defined: warn
