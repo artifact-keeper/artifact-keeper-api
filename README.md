@@ -2,9 +2,13 @@
 
 OpenAPI 3.1 specification for the Artifact Keeper management REST API.
 
+> **Note:** This spec is **auto-generated** from the Rust backend's utoipa annotations.
+> Do not edit `openapi.yaml` or `openapi.json` by hand — they are overwritten on every backend release.
+> To change the API, modify the handler annotations in `artifact-keeper/backend/src/api/handlers/`.
+
 ## What's included
 
-- **`openapi.yaml`** — Single-file OpenAPI 3.1 spec covering 288 operations across 27 endpoint groups
+- **`openapi.yaml`** / **`openapi.json`** — Auto-generated OpenAPI 3.1 spec covering 277 operations across 24 endpoint groups
 - **CI validation** — Spectral + Redocly linting on every push/PR
 - **SDK generation** — TypeScript, Kotlin, Swift, and Rust clients auto-generated and published on release tags
 
