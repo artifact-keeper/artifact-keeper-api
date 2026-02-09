@@ -231,6 +231,7 @@ jobs:
           cp sdk/swift/Package.swift /tmp/swift-sdk/
           cp sdk/swift/LICENSE /tmp/swift-sdk/
           cp sdk/swift/README.md /tmp/swift-sdk/
+          cp sdk/swift/.spi.yml /tmp/swift-sdk/
           cp -R sdk/swift/Sources /tmp/swift-sdk/
           cp -R sdk/swift/.github /tmp/swift-sdk/
           cd /tmp/swift-sdk
@@ -238,7 +239,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Update Swift SDK to ${VERSION}" || echo "No changes to commit"
-          git tag "v${VERSION}"
+          # Swift ecosystem uses bare semver tags (no v prefix)
+          git tag "${VERSION}"
           git push origin main --tags
           # Clean up key
           rm -f ~/.ssh/swift-sdk-deploy

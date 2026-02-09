@@ -1,0 +1,8 @@
+version: 1
+builder:
+  configs:
+    - documentation_targets: [ArtifactKeeperClient]
+      platform: macos-spm
+    - platform: ios
+    - platform: watchos
+    - platform: tvos
