@@ -4023,6 +4023,35 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /api/v1/edge-nodes/{id}/sync/tasks/{task_id}/complete:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Edge node ID.
+        schema:
+          type: string
+          format: uuid
+      - name: task_id
+        in: path
+        required: true
+        description: Sync task ID.
+        schema:
+          type: string
+          format: uuid
+    post:
+      operationId: completeSyncTask
+      tags: [Edge Nodes]
+      summary: Mark a sync task as completed
+      description: Reports that a synchronization task has been completed successfully by the edge node.
+      responses:
+        "200":
+          description: Task marked as completed.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /api/v1/edge-nodes/{id}/repositories/{repo_id}:
     parameters:
       - name: id
@@ -4224,6 +4253,56 @@ paths:
       responses:
         "200":
           description: Chunk uploaded.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/edge-nodes/{id}/transfer/{session_id}/chunk/{chunk_index}/complete:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        description: Edge node ID.
+        schema:
+          type: string
+          format: uuid
+      - name: session_id
+        in: path
+        required: true
+        description: Transfer session ID.
+        schema:
+          type: string
+          format: uuid
+      - name: chunk_index
+        in: path
+        required: true
+        description: Zero-based chunk index.
+        schema:
+          type: integer
+    post:
+      operationId: completeTransferChunk
+      tags: [Edge Nodes]
+      summary: Mark a chunk as completed
+      description: Reports that a chunk has been successfully transferred and verified, recording the checksum and optional source peer.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [checksum]
+              properties:
+                checksum:
+                  type: string
+                  description: SHA-256 checksum of the chunk data.
+                source_peer_id:
+                  type: string
+                  format: uuid
+                  description: ID of the peer that served this chunk.
+      responses:
+        "200":
+          description: Chunk marked as completed.
         "401":
           $ref: "#/components/responses/Unauthorized"
         "404":
