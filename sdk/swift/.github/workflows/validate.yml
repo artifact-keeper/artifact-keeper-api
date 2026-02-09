@@ -3,15 +3,16 @@ name: Validate Swift Package
 on:
   push:
     branches: [main]
-    tags: ["v*"]
+    tags: ["*.*.*"]
 
 jobs:
   validate:
     name: Validate Package (${{ matrix.swift }})
     runs-on: macos-15
     strategy:
+      fail-fast: false
       matrix:
-        swift: ["5.9", "6.0"]
+        swift: ["6.0", "6.1"]
     steps:
       - uses: actions/checkout@v4
 
