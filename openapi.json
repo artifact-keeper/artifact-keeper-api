@@ -22287,14 +22287,6 @@
         {
             "name": "health",
             "description": "Health and readiness checks"
-        },
-        {
-            "name": "lifecycle",
-            "description": "Lifecycle policy management"
-        },
-        {
-            "name": "telemetry",
-            "description": "Telemetry and crash reporting"
         }
     ]
 }
