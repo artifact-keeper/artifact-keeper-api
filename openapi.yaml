@@ -5521,6 +5521,120 @@ paths:
           description: Redirect to S3 presigned URL
         '404':
           description: Artifact not found
+  /api/v1/repositories/{key}/labels:
+    get:
+      tags:
+      - repository-labels
+      summary: List all labels on a repository
+      operationId: list_labels
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Labels retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelsListResponse'
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - repository-labels
+      summary: Set all labels on a repository (replaces existing)
+      operationId: set_labels
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetLabelsRequest'
+        required: true
+      responses:
+        '200':
+          description: Labels updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelsListResponse'
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/labels/{label_key}:
+    post:
+      tags:
+      - repository-labels
+      summary: Add or update a single label
+      operationId: add_label
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: label_key
+        in: path
+        description: Label key to set
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddLabelRequest'
+        required: true
+      responses:
+        '200':
+          description: Label added/updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LabelResponse'
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+    delete:
+      tags:
+      - repository-labels
+      summary: Delete a label by key
+      operationId: delete_label
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: label_key
+        in: path
+        description: Label key to remove
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: Label removed
+        '404':
+          description: Repository or label not found
+      security:
+      - bearer_auth: []
   /api/v1/repositories/{key}/members:
     get:
       tags:
@@ -8004,6 +8118,11 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/BuildArtifactResponse'
+    AddLabelRequest:
+      type: object
+      properties:
+        value:
+          type: string
     AddVirtualMemberRequest:
       type: object
       required:
@@ -10865,6 +10984,50 @@ components:
         total:
           type: integer
           minimum: 0
+    LabelEntrySchema:
+      type: object
+      required:
+      - key
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+    LabelResponse:
+      type: object
+      required:
+      - id
+      - repository_id
+      - key
+      - value
+      - created_at
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+        repository_id:
+          type: string
+          format: uuid
+        value:
+          type: string
+    LabelsListResponse:
+      type: object
+      required:
+      - items
+      - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabelResponse'
+        total:
+          type: integer
+          minimum: 0
     LdapConfigResponse:
       type: object
       required:
@@ -13181,6 +13344,15 @@ components:
           type: string
         status:
           type: string
+    SetLabelsRequest:
+      type: object
+      required:
+      - labels
+      properties:
+        labels:
+          type: array
+          items:
+            $ref: '#/components/schemas/LabelEntrySchema'
     SetupStatusResponse:
       type: object
       description: Response body for the setup status endpoint.
@@ -14479,3 +14651,5 @@ tags:
   description: Data migration and import
 - name: health
   description: Health and readiness checks
+- name: repository-labels
+  description: Repository label management
