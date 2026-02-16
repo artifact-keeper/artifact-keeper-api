@@ -2593,6 +2593,404 @@
         ]
       }
     },
+    "/api/v1/approval/history": {
+      "get": {
+        "tags": [
+          "approval"
+        ],
+        "summary": "List approval history with optional filtering by status or source repository.",
+        "operationId": "list_approval_history",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (1-indexed)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page (max 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by status (pending, approved, rejected)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "source_repository",
+            "in": "query",
+            "description": "Filter by source repository key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approval history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/approval/pending": {
+      "get": {
+        "tags": [
+          "approval"
+        ],
+        "summary": "List pending approval requests. Optionally filter by source repository.",
+        "operationId": "list_pending_approvals",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (1-indexed)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Items per page (max 100)",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "source_repository",
+            "in": "query",
+            "description": "Filter by source repository key",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pending approval requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/approval/request": {
+      "post": {
+        "tags": [
+          "approval"
+        ],
+        "summary": "Request approval for promoting an artifact from staging to release.",
+        "operationId": "request_approval",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApprovalRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Approval request created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact or repository not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Pending approval already exists",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/approval/{id}": {
+      "get": {
+        "tags": [
+          "approval"
+        ],
+        "summary": "Get a single approval request by ID.",
+        "operationId": "get_approval",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Approval request ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approval request details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Approval request not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/approval/{id}/approve": {
+      "post": {
+        "tags": [
+          "approval"
+        ],
+        "summary": "Approve a pending promotion request. Admin-only.",
+        "description": "This copies the artifact from the staging repo to the release repo,\ninserts the new artifact record, records promotion history, and\nupdates the approval status to \"approved\".",
+        "operationId": "approve_promotion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Approval request ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Promotion approved and executed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Approval request not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Approval already reviewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/approval/{id}/reject": {
+      "post": {
+        "tags": [
+          "approval"
+        ],
+        "summary": "Reject a pending promotion request. Admin-only.",
+        "operationId": "reject_promotion",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Approval request ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Promotion rejected",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApprovalResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin access required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Approval request not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Approval already reviewed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/artifacts/{id}": {
       "get": {
         "tags": [
@@ -6732,6 +7130,197 @@
         ]
       }
     },
+    "/api/v1/peers/{id}/labels": {
+      "get": {
+        "tags": [
+          "peer-instance-labels"
+        ],
+        "summary": "List all labels on a peer instance",
+        "operationId": "list_labels",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Peer instance ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Labels retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerLabelsListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer instance not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "peer-instance-labels"
+        ],
+        "summary": "Set all labels on a peer instance (replaces existing)",
+        "operationId": "set_labels",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Peer instance ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetPeerLabelsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Labels updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerLabelsListResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer instance not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/peers/{id}/labels/{label_key}": {
+      "post": {
+        "tags": [
+          "peer-instance-labels"
+        ],
+        "summary": "Add or update a single label on a peer instance",
+        "operationId": "add_label",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Peer instance ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "label_key",
+            "in": "path",
+            "description": "Label key to set",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddPeerLabelRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Label added/updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PeerLabelResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Peer instance not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "peer-instance-labels"
+        ],
+        "summary": "Delete a label by key from a peer instance",
+        "operationId": "delete_label",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Peer instance ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "label_key",
+            "in": "path",
+            "description": "Label key to remove",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Label removed"
+          },
+          "404": {
+            "description": "Peer instance or label not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/peers/{id}/network-profile": {
       "put": {
         "tags": [
@@ -8224,6 +8813,287 @@
         ]
       }
     },
+    "/api/v1/promotion-rules": {
+      "get": {
+        "tags": [
+          "promotion"
+        ],
+        "summary": "List all promotion rules",
+        "operationId": "list_rules",
+        "parameters": [
+          {
+            "name": "source_repo_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of promotion rules",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionRuleListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "promotion"
+        ],
+        "summary": "Create a promotion rule",
+        "operationId": "create_rule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Promotion rule created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionRuleResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/promotion-rules/{id}": {
+      "get": {
+        "tags": [
+          "promotion"
+        ],
+        "summary": "Get a promotion rule by ID",
+        "operationId": "get_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Promotion rule ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Promotion rule details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionRuleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rule not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "promotion"
+        ],
+        "summary": "Update a promotion rule",
+        "operationId": "update_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Promotion rule ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Promotion rule updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PromotionRuleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rule not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "promotion"
+        ],
+        "summary": "Delete a promotion rule",
+        "operationId": "delete_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Promotion rule ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Promotion rule deleted"
+          },
+          "404": {
+            "description": "Rule not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/promotion-rules/{id}/evaluate": {
+      "post": {
+        "tags": [
+          "promotion"
+        ],
+        "summary": "Dry-run evaluate a rule against all artifacts in its source repository",
+        "operationId": "evaluate_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Promotion rule ID to evaluate",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evaluation results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BulkEvaluationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rule not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/promotion/repositories/{key}/artifacts/{artifact_id}/promote": {
       "post": {
         "tags": [
@@ -8294,6 +9164,82 @@
           },
           "422": {
             "description": "Validation error (repo type/format mismatch)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/promotion/repositories/{key}/artifacts/{artifact_id}/reject": {
+      "post": {
+        "tags": [
+          "promotion"
+        ],
+        "operationId": "reject_artifact",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Source repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact ID to reject",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectArtifactRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Artifact rejection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RejectionResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact or repository not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
             "content": {
               "application/json": {
                 "schema": {
@@ -8423,6 +9369,15 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by status (promoted, rejected, pending_approval)",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8438,6 +9393,699 @@
           },
           "404": {
             "description": "Repository not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/checks": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "list_checks",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of quality check results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CheckResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/checks/trigger": {
+      "post": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "trigger_checks",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TriggerChecksRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Quality checks triggered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TriggerChecksResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/checks/{id}": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "get_check",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Check result ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Check result details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Check result not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/checks/{id}/issues": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "list_check_issues",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Check result ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of issues for a check result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IssueResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Check result not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/gates": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "list_gates",
+        "responses": {
+          "200": {
+            "description": "List of quality gates",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/GateResponse"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "create_gate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateGateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Quality gate created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GateResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/gates/evaluate/{artifact_id}": {
+      "post": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "evaluate_gate",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact ID to evaluate",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Gate evaluation result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GateEvaluationResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact or gate not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/gates/{id}": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "get_gate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Quality gate ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quality gate details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Quality gate not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "update_gate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Quality gate ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateGateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Quality gate updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Quality gate not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "delete_gate",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Quality gate ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Quality gate deleted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Quality gate not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/health/artifacts/{artifact_id}": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "get_artifact_health",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact health score",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactHealthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/health/dashboard": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "get_health_dashboard",
+        "responses": {
+          "200": {
+            "description": "Health dashboard summary",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthDashboardResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/health/repositories/{key}": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "get_repo_health",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Repository health score",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepoHealthResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/quality/issues/{id}/suppress": {
+      "post": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "suppress_issue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Issue ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuppressIssueRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Issue suppressed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Issue not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "quality"
+        ],
+        "operationId": "unsuppress_issue",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Issue ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Issue unsuppressed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssueResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Issue not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8687,6 +10335,9 @@
           },
           "404": {
             "description": "Repository not found"
+          },
+          "409": {
+            "description": "Repository key already exists"
           }
         },
         "security": [
@@ -8980,7 +10631,7 @@
           "repository-labels"
         ],
         "summary": "List all labels on a repository",
-        "operationId": "list_labels",
+        "operationId": "list_repo_labels",
         "parameters": [
           {
             "name": "key",
@@ -9018,7 +10669,7 @@
           "repository-labels"
         ],
         "summary": "Set all labels on a repository (replaces existing)",
-        "operationId": "set_labels",
+        "operationId": "set_repo_labels",
         "parameters": [
           {
             "name": "key",
@@ -9068,7 +10719,7 @@
           "repository-labels"
         ],
         "summary": "Add or update a single label",
-        "operationId": "add_label",
+        "operationId": "add_repo_label",
         "parameters": [
           {
             "name": "key",
@@ -9125,7 +10776,7 @@
           "repository-labels"
         ],
         "summary": "Delete a label by key",
-        "operationId": "delete_label",
+        "operationId": "delete_repo_label",
         "parameters": [
           {
             "name": "key",
@@ -12001,6 +13652,334 @@
         ]
       }
     },
+    "/api/v1/sync-policies": {
+      "get": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "List all sync policies",
+        "operationId": "list_sync_policies",
+        "responses": {
+          "200": {
+            "description": "List of sync policies",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPolicyListResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Create a new sync policy",
+        "operationId": "create_sync_policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSyncPolicyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sync policy created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error"
+          },
+          "409": {
+            "description": "Policy name already exists"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync-policies/evaluate": {
+      "post": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Force re-evaluate all sync policies",
+        "operationId": "evaluate_policies",
+        "responses": {
+          "200": {
+            "description": "Evaluation completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationResultResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync-policies/preview": {
+      "post": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Preview what a policy would match (dry-run)",
+        "operationId": "preview_sync_policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreviewPolicyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Preview result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResultResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync-policies/{id}": {
+      "get": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Get a sync policy by ID",
+        "operationId": "get_sync_policy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Sync policy ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sync policy details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPolicyResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sync policy not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Update a sync policy",
+        "operationId": "update_sync_policy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Sync policy ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateSyncPolicyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sync policy updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPolicyResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sync policy not found"
+          },
+          "409": {
+            "description": "Policy name already exists"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Delete a sync policy",
+        "operationId": "delete_sync_policy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Sync policy ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sync policy deleted"
+          },
+          "404": {
+            "description": "Sync policy not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/sync-policies/{id}/toggle": {
+      "post": {
+        "tags": [
+          "peers"
+        ],
+        "summary": "Toggle a sync policy (enable/disable)",
+        "operationId": "toggle_policy",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Sync policy ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TogglePolicyPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Sync policy toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncPolicyResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Sync policy not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/tree": {
       "get": {
         "tags": [
@@ -12236,7 +14215,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AdminUserResponse"
                 }
               }
             }
@@ -12320,7 +14299,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AdminUserResponse"
                 }
               }
             }
@@ -13127,7 +15106,8 @@
         "tags": [
           "health"
         ],
-        "summary": "Health check endpoint - basic liveness check",
+        "summary": "Health check endpoint — rich status page for dashboards.",
+        "description": "Checks database, storage (real write/read probe), optional services (Trivy,\nMeilisearch), and exposes DB connection pool statistics.",
         "operationId": "health_check",
         "responses": {
           "200": {
@@ -13153,19 +15133,56 @@
         }
       }
     },
-    "/ready": {
+    "/livez": {
       "get": {
         "tags": [
           "health"
         ],
-        "summary": "Readiness check endpoint - is the service ready to accept traffic?",
+        "summary": "Liveness probe — confirms the process is alive and can serve HTTP.",
+        "description": "Takes no State parameter. If Axum can route the request and execute this\nfunction, the process is alive. External service failures cannot trigger\npod restarts.",
+        "operationId": "liveness_check",
+        "responses": {
+          "200": {
+            "description": "Process is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LivezResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness probe — is the service ready to accept traffic?",
+        "description": "Checks database connectivity, that migrations have run successfully,\nand that initial setup (admin password) is complete.",
         "operationId": "readiness_check",
         "responses": {
           "200": {
-            "description": "Service is ready to accept traffic"
+            "description": "Service is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyzResponse"
+                }
+              }
+            }
           },
           "503": {
-            "description": "Service is not ready"
+            "description": "Service is not ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyzResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13220,6 +15237,14 @@
           }
         }
       },
+      "AddPeerLabelRequest": {
+        "type": "object",
+        "properties": {
+          "value": {
+            "type": "string"
+          }
+        }
+      },
       "AddVirtualMemberRequest": {
         "type": "object",
         "required": [
@@ -13235,6 +15260,60 @@
               "null"
             ],
             "format": "int32"
+          }
+        }
+      },
+      "AdminUserResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "username",
+          "email",
+          "auth_provider",
+          "is_active",
+          "is_admin",
+          "must_change_password",
+          "created_at"
+        ],
+        "properties": {
+          "auth_provider": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "email": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_active": {
+            "type": "boolean"
+          },
+          "is_admin": {
+            "type": "boolean"
+          },
+          "last_login_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "must_change_password": {
+            "type": "boolean"
+          },
+          "username": {
+            "type": "string"
           }
         }
       },
@@ -13401,6 +15480,299 @@
           },
           "token_prefix": {
             "type": "string"
+          }
+        }
+      },
+      "ApprovalHistoryQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "source_repository": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ApprovalListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "pagination"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApprovalResponse"
+            }
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/Pagination"
+          }
+        }
+      },
+      "ApprovalRequest": {
+        "type": "object",
+        "required": [
+          "source_repository",
+          "target_repository",
+          "artifact_id"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Artifact ID to promote"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Free-text justification"
+          },
+          "skip_policy_check": {
+            "type": "boolean",
+            "description": "Skip policy evaluation"
+          },
+          "source_repository": {
+            "type": "string",
+            "description": "Source staging repository key"
+          },
+          "target_repository": {
+            "type": "string",
+            "description": "Target release repository key"
+          }
+        }
+      },
+      "ApprovalResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "artifact_id",
+          "source_repository",
+          "target_repository",
+          "status",
+          "requested_by",
+          "requested_at"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "policy_result": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "requested_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "review_notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reviewed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "reviewed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "source_repository": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "target_repository": {
+            "type": "string"
+          }
+        }
+      },
+      "ArtifactEvalEntry": {
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "passed",
+          "violations"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "ArtifactFilterSchema": {
+        "type": "object",
+        "properties": {
+          "exclude_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "include_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "max_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
+      "ArtifactHealthResponse": {
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "health_score",
+          "health_grade",
+          "total_issues",
+          "critical_issues",
+          "checks_passed",
+          "checks_total",
+          "checks"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckSummary"
+            }
+          },
+          "checks_passed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "checks_total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "critical_issues": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "health_grade": {
+            "type": "string"
+          },
+          "health_score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last_checked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "license_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "metadata_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "quality_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "security_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "total_issues": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
@@ -14130,6 +16502,44 @@
           }
         }
       },
+      "BulkEvaluationResponse": {
+        "type": "object",
+        "required": [
+          "rule_id",
+          "rule_name",
+          "total_artifacts",
+          "passed",
+          "failed",
+          "results"
+        ],
+        "properties": {
+          "failed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "passed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ArtifactEvalEntry"
+            }
+          },
+          "rule_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rule_name": {
+            "type": "string"
+          },
+          "total_artifacts": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "BulkPromoteRequest": {
         "type": "object",
         "required": [
@@ -14225,6 +16635,116 @@
           }
         }
       },
+      "CheckResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "artifact_id",
+          "repository_id",
+          "check_type",
+          "status",
+          "issues_count",
+          "critical_count",
+          "high_count",
+          "medium_count",
+          "low_count",
+          "info_count",
+          "created_at"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "check_type": {
+            "type": "string"
+          },
+          "checker_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "critical_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "details": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "error_message": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "high_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "info_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "issues_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "low_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "medium_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "CheckStatus": {
         "type": "object",
         "required": [
@@ -14236,6 +16756,46 @@
               "string",
               "null"
             ]
+          },
+          "status": {
+            "type": "string"
+          }
+        }
+      },
+      "CheckSummary": {
+        "type": "object",
+        "required": [
+          "check_type",
+          "status",
+          "issues_count"
+        ],
+        "properties": {
+          "check_type": {
+            "type": "string"
+          },
+          "completed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "issues_count": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passed": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           },
           "status": {
             "type": "string"
@@ -14918,6 +17478,94 @@
           }
         }
       },
+      "CreateGateRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enforce_on_download": {
+            "type": "boolean"
+          },
+          "enforce_on_promotion": {
+            "type": "boolean"
+          },
+          "max_critical_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_high_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_medium_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_health_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_metadata_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_quality_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_security_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "required_checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "CreateGroupRequest": {
         "type": "object",
         "required": [
@@ -15213,8 +17861,22 @@
           "block_unscanned": {
             "type": "boolean"
           },
+          "max_artifact_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "max_severity": {
             "type": "string"
+          },
+          "min_staging_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           },
           "name": {
             "type": "string"
@@ -15225,6 +17887,9 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "require_signature": {
+            "type": "boolean"
           }
         }
       },
@@ -15273,6 +17938,72 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "CreateRuleRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "source_repo_id",
+          "target_repo_id"
+        ],
+        "properties": {
+          "allowed_licenses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "auto_promote": {
+            "type": "boolean"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "max_artifact_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_cve_severity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "min_health_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_staging_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "require_signature": {
+            "type": "boolean"
+          },
+          "source_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_repo_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -15347,6 +18078,43 @@
           }
         }
       },
+      "CreateSyncPolicyPayload": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "artifact_filter": {
+            "type": "object"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "peer_selector": {
+            "type": "object"
+          },
+          "precedence": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "replication_mode": {
+            "type": "string"
+          },
+          "repo_selector": {
+            "type": "object"
+          }
+        }
+      },
       "CreateTicketRequest": {
         "type": "object",
         "required": [
@@ -15410,7 +18178,7 @@
             ]
           },
           "user": {
-            "$ref": "#/components/schemas/UserResponse"
+            "$ref": "#/components/schemas/AdminUserResponse"
           }
         }
       },
@@ -15833,6 +18601,38 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "DbPoolStats": {
+        "type": "object",
+        "description": "Database connection pool statistics.",
+        "required": [
+          "max_connections",
+          "idle_connections",
+          "active_connections",
+          "size"
+        ],
+        "properties": {
+          "active_connections": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "idle_connections": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "max_connections": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "size": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
           }
         }
       },
@@ -16644,6 +19444,33 @@
           }
         }
       },
+      "EvaluationResultResponse": {
+        "type": "object",
+        "required": [
+          "created",
+          "updated",
+          "removed",
+          "policies_evaluated"
+        ],
+        "properties": {
+          "created": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "policies_evaluated": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "removed": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "updated": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "EventsQuery": {
         "type": "object",
         "properties": {
@@ -16948,6 +19775,179 @@
           "Wasm"
         ]
       },
+      "GateEvaluationResponse": {
+        "type": "object",
+        "required": [
+          "passed",
+          "action",
+          "gate_name",
+          "health_score",
+          "health_grade",
+          "violations",
+          "component_scores"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "component_scores": {
+            "type": "object"
+          },
+          "gate_name": {
+            "type": "string"
+          },
+          "health_grade": {
+            "type": "string"
+          },
+          "health_score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "passed": {
+            "type": "boolean"
+          },
+          "violations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GateViolationResponse"
+            }
+          }
+        }
+      },
+      "GateResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "required_checks",
+          "enforce_on_promotion",
+          "enforce_on_download",
+          "action",
+          "is_enabled",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enforce_on_download": {
+            "type": "boolean"
+          },
+          "enforce_on_promotion": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "max_critical_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_high_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_medium_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_health_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_metadata_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_quality_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_security_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "required_checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "GateViolationResponse": {
+        "type": "object",
+        "required": [
+          "rule",
+          "expected",
+          "actual",
+          "message"
+        ],
+        "properties": {
+          "actual": {
+            "type": "string"
+          },
+          "expected": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "rule": {
+            "type": "string"
+          }
+        }
+      },
       "GenerateSbomRequest": {
         "type": "object",
         "required": [
@@ -17170,6 +20170,60 @@
           }
         }
       },
+      "HealthDashboardResponse": {
+        "type": "object",
+        "required": [
+          "total_repositories",
+          "total_artifacts_evaluated",
+          "avg_health_score",
+          "repos_grade_a",
+          "repos_grade_b",
+          "repos_grade_c",
+          "repos_grade_d",
+          "repos_grade_f",
+          "repositories"
+        ],
+        "properties": {
+          "avg_health_score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "repos_grade_a": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repos_grade_b": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repos_grade_c": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repos_grade_d": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repos_grade_f": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepoHealthResponse"
+            }
+          },
+          "total_artifacts_evaluated": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "total_repositories": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
       "HealthResponse": {
         "type": "object",
         "required": [
@@ -17181,6 +20235,16 @@
         "properties": {
           "checks": {
             "$ref": "#/components/schemas/HealthChecks"
+          },
+          "db_pool": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DbPoolStats"
+              }
+            ]
           },
           "demo_mode": {
             "type": "boolean"
@@ -17284,6 +20348,81 @@
           "path": {
             "type": "string",
             "description": "Local filesystem path to plugin directory"
+          }
+        }
+      },
+      "IssueResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "check_result_id",
+          "artifact_id",
+          "severity",
+          "category",
+          "title",
+          "is_suppressed",
+          "created_at"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "category": {
+            "type": "string"
+          },
+          "check_result_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_suppressed": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "severity": {
+            "type": "string"
+          },
+          "suppressed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "suppressed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "suppressed_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
           }
         }
       },
@@ -17924,6 +21063,18 @@
           }
         }
       },
+      "LivezResponse": {
+        "type": "object",
+        "description": "Lightweight liveness response.",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          }
+        }
+      },
       "LoginRequest": {
         "type": "object",
         "required": [
@@ -17977,6 +21128,48 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "MatchedPeerSchema": {
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "MatchedRepoSchema": {
+        "type": "object",
+        "required": [
+          "id",
+          "key",
+          "format"
+        ],
+        "properties": {
+          "format": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
           }
         }
       },
@@ -18870,6 +22063,69 @@
           }
         }
       },
+      "PeerLabelEntrySchema": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "PeerLabelResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "peer_instance_id",
+          "key",
+          "value",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string"
+          },
+          "peer_instance_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "PeerLabelsListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeerLabelResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
       "PeerResponse": {
         "type": "object",
         "required": [
@@ -18941,6 +22197,63 @@
           "transfer_success_count": {
             "type": "integer",
             "format": "int32"
+          }
+        }
+      },
+      "PeerSelectorSchema": {
+        "type": "object",
+        "properties": {
+          "all": {
+            "type": "boolean"
+          },
+          "match_labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "match_peers": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "match_region": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "PendingQuery": {
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "minimum": 0
+          },
+          "source_repository": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -19282,6 +22595,7 @@
           "block_unscanned",
           "block_on_fail",
           "is_enabled",
+          "require_signature",
           "created_at",
           "updated_at"
         ],
@@ -19303,8 +22617,22 @@
           "is_enabled": {
             "type": "boolean"
           },
+          "max_artifact_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "max_severity": {
             "type": "string"
+          },
+          "min_staging_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           },
           "name": {
             "type": "string"
@@ -19315,6 +22643,9 @@
               "null"
             ],
             "format": "uuid"
+          },
+          "require_signature": {
+            "type": "boolean"
           },
           "updated_at": {
             "type": "string",
@@ -19338,6 +22669,69 @@
           },
           "severity": {
             "type": "string"
+          }
+        }
+      },
+      "PreviewPolicyPayload": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "artifact_filter": {
+            "type": "object"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "peer_selector": {
+            "type": "object"
+          },
+          "precedence": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "replication_mode": {
+            "type": "string"
+          },
+          "repo_selector": {
+            "type": "object"
+          }
+        }
+      },
+      "PreviewResultResponse": {
+        "type": "object",
+        "required": [
+          "matched_repositories",
+          "matched_peers",
+          "subscription_count"
+        ],
+        "properties": {
+          "matched_peers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchedPeerSchema"
+            }
+          },
+          "matched_repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MatchedRepoSchema"
+            }
+          },
+          "subscription_count": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -19393,6 +22787,7 @@
           "artifact_path",
           "source_repo_key",
           "target_repo_key",
+          "status",
           "created_at"
         ],
         "properties": {
@@ -19436,7 +22831,16 @@
               "null"
             ]
           },
+          "rejection_reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "source_repo_key": {
+            "type": "string"
+          },
+          "status": {
             "type": "string"
           },
           "target_repo_key": {
@@ -19469,6 +22873,12 @@
             ],
             "format": "int32",
             "minimum": 0
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -19529,6 +22939,109 @@
           }
         }
       },
+      "PromotionRuleListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PromotionRuleResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "PromotionRuleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "source_repo_id",
+          "target_repo_id",
+          "is_enabled",
+          "require_signature",
+          "auto_promote",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "allowed_licenses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "auto_promote": {
+            "type": "boolean"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "is_enabled": {
+            "type": "boolean"
+          },
+          "max_artifact_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_cve_severity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "min_health_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_staging_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "require_signature": {
+            "type": "boolean"
+          },
+          "source_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "target_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
       "QuickSearchResponse": {
         "type": "object",
         "required": [
@@ -19540,6 +23053,41 @@
             "items": {
               "$ref": "#/components/schemas/SearchResultItem"
             }
+          }
+        }
+      },
+      "ReadyzChecks": {
+        "type": "object",
+        "required": [
+          "database",
+          "migrations",
+          "setup_complete"
+        ],
+        "properties": {
+          "database": {
+            "$ref": "#/components/schemas/CheckStatus"
+          },
+          "migrations": {
+            "$ref": "#/components/schemas/CheckStatus"
+          },
+          "setup_complete": {
+            "$ref": "#/components/schemas/CheckStatus"
+          }
+        }
+      },
+      "ReadyzResponse": {
+        "type": "object",
+        "description": "Readiness response with per-check detail.",
+        "required": [
+          "status",
+          "checks"
+        ],
+        "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/ReadyzChecks"
+          },
+          "status": {
+            "type": "string"
           }
         }
       },
@@ -19611,6 +23159,52 @@
           }
         }
       },
+      "RejectArtifactRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "RejectionResponse": {
+        "type": "object",
+        "required": [
+          "rejected",
+          "artifact_id",
+          "source",
+          "reason",
+          "rejection_id"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "rejected": {
+            "type": "boolean"
+          },
+          "rejection_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string"
+          }
+        }
+      },
       "RemoteInstanceResponse": {
         "type": "object",
         "required": [
@@ -19632,6 +23226,81 @@
             "type": "string"
           },
           "url": {
+            "type": "string"
+          }
+        }
+      },
+      "RepoHealthResponse": {
+        "type": "object",
+        "required": [
+          "repository_id",
+          "repository_key",
+          "health_score",
+          "health_grade",
+          "artifacts_evaluated",
+          "artifacts_passing",
+          "artifacts_failing"
+        ],
+        "properties": {
+          "artifacts_evaluated": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "artifacts_failing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "artifacts_passing": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "avg_license_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "avg_metadata_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "avg_quality_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "avg_security_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "health_grade": {
+            "type": "string"
+          },
+          "health_score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "last_evaluated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repository_key": {
             "type": "string"
           }
         }
@@ -19658,6 +23327,39 @@
                 "$ref": "#/components/schemas/ScoreResponse"
               }
             ]
+          }
+        }
+      },
+      "RepoSelectorSchema": {
+        "type": "object",
+        "properties": {
+          "match_formats": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "match_labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "match_pattern": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "match_repos": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         }
       },
@@ -19980,6 +23682,18 @@
           }
         }
       },
+      "ReviewRequest": {
+        "type": "object",
+        "properties": {
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional reviewer notes"
+          }
+        }
+      },
       "RoleListResponse": {
         "type": "object",
         "required": [
@@ -20016,6 +23730,33 @@
             "type": "string"
           },
           "permissions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "RuleEvaluationResponse": {
+        "type": "object",
+        "required": [
+          "rule_id",
+          "rule_name",
+          "passed",
+          "violations"
+        ],
+        "properties": {
+          "passed": {
+            "type": "boolean"
+          },
+          "rule_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rule_name": {
+            "type": "string"
+          },
+          "violations": {
             "type": "array",
             "items": {
               "type": "string"
@@ -20611,6 +24352,20 @@
           }
         }
       },
+      "SetPeerLabelsRequest": {
+        "type": "object",
+        "required": [
+          "labels"
+        ],
+        "properties": {
+          "labels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PeerLabelEntrySchema"
+            }
+          }
+        }
+      },
       "SetupStatusResponse": {
         "type": "object",
         "description": "Response body for the setup status endpoint.",
@@ -21008,6 +24763,17 @@
           }
         }
       },
+      "SuppressIssueRequest": {
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
       "SuppressRequest": {
         "type": "object",
         "required": [
@@ -21019,6 +24785,85 @@
             "type": "string"
           },
           "until": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SyncPolicyListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncPolicyResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "SyncPolicyResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "description",
+          "enabled",
+          "repo_selector",
+          "peer_selector",
+          "replication_mode",
+          "priority",
+          "artifact_filter",
+          "precedence",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "artifact_filter": {
+            "type": "object"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "peer_selector": {
+            "type": "object"
+          },
+          "precedence": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "replication_mode": {
+            "type": "string"
+          },
+          "repo_selector": {
+            "type": "object"
+          },
+          "updated_at": {
             "type": "string",
             "format": "date-time"
           }
@@ -21293,6 +25138,17 @@
           }
         }
       },
+      "TogglePolicyPayload": {
+        "type": "object",
+        "required": [
+          "enabled"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        }
+      },
       "ToggleRequest": {
         "type": "object",
         "required": [
@@ -21495,6 +25351,42 @@
           }
         }
       },
+      "TriggerChecksRequest": {
+        "type": "object",
+        "properties": {
+          "artifact_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "repository_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "TriggerChecksResponse": {
+        "type": "object",
+        "required": [
+          "message",
+          "artifacts_queued"
+        ],
+        "properties": {
+          "artifacts_queued": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "TriggerScanRequest": {
         "type": "object",
         "properties": {
@@ -21634,6 +25526,105 @@
           },
           "status": {
             "type": "string"
+          }
+        }
+      },
+      "UpdateGateRequest": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enforce_on_download": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "enforce_on_promotion": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "max_critical_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_high_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_medium_issues": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_health_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_metadata_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_quality_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_security_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "required_checks": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -21825,11 +25816,28 @@
           "is_enabled": {
             "type": "boolean"
           },
+          "max_artifact_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "max_severity": {
             "type": "string"
           },
+          "min_staging_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
           "name": {
             "type": "string"
+          },
+          "require_signature": {
+            "type": "boolean"
           }
         }
       },
@@ -21848,6 +25856,12 @@
               "null"
             ]
           },
+          "key": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "name": {
             "type": [
               "string",
@@ -21860,6 +25874,71 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "UpdateRuleRequest": {
+        "type": "object",
+        "properties": {
+          "allowed_licenses": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "auto_promote": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "is_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "max_artifact_age_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "max_cve_severity": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "min_health_score": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "min_staging_hours": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "require_signature": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           }
         }
       },
@@ -21967,6 +26046,58 @@
               "null"
             ],
             "format": "uuid"
+          }
+        }
+      },
+      "UpdateSyncPolicyPayload": {
+        "type": "object",
+        "properties": {
+          "artifact_filter": {
+            "type": "object"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "peer_selector": {
+            "type": "object"
+          },
+          "precedence": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
+          },
+          "replication_mode": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "repo_selector": {
+            "type": "object"
           }
         }
       },
@@ -22098,7 +26229,7 @@
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/UserResponse"
+              "$ref": "#/components/schemas/AdminUserResponse"
             }
           },
           "pagination": {
@@ -22448,6 +26579,10 @@
       "description": "Staging-to-release artifact promotion"
     },
     {
+      "name": "approval",
+      "description": "Promotion approval workflow"
+    },
+    {
       "name": "security",
       "description": "Security policies and scanning"
     },
@@ -22500,12 +26635,20 @@
       "description": "Data migration and import"
     },
     {
+      "name": "quality",
+      "description": "Artifact health scoring and quality gates"
+    },
+    {
       "name": "health",
       "description": "Health and readiness checks"
     },
     {
       "name": "repository-labels",
       "description": "Repository label management"
+    },
+    {
+      "name": "peer-instance-labels",
+      "description": "Peer instance label management"
     }
   ]
 }
