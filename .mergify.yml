@@ -1,0 +1,38 @@
+queue_rules:
+  - name: default
+    merge_method: squash
+    update_method: rebase
+
+pull_request_rules:
+  - name: Auto-merge spec sync from backend CI
+    conditions:
+      - "title~=^chore: sync openapi spec"
+      - check-success=lint
+      - check-success=build-typescript
+      - check-success=build-kotlin
+      - check-success=build-swift
+      - check-success=build-rust
+      - check-success=build-python
+    actions:
+      queue:
+        name: default
+
+  - name: Require all SDK builds
+    conditions:
+      - check-success=lint
+      - check-success=build-typescript
+      - check-success=build-kotlin
+      - check-success=build-swift
+      - check-success=build-rust
+      - check-success=build-python
+      - "#approved-reviews-by>=1"
+    actions:
+      label:
+        add:
+          - ready-to-merge
+
+  - name: Clean up merged branches
+    conditions:
+      - merged
+    actions:
+      delete_head_branch: {}
