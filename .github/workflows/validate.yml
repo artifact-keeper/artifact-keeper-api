@@ -30,6 +30,36 @@ jobs:
       - name: Verify bundleable
         run: redocly bundle openapi.yaml -o /tmp/bundled.yaml
 
+  # ─── Breaking change detection ──────────────────────────────────────
+  breaking-changes:
+    name: Breaking Change Detection
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get previous spec from latest tag
+        id: prev-spec
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [ -n "$PREV_TAG" ]; then
+            echo "Found previous tag: $PREV_TAG"
+            git show "$PREV_TAG:openapi.yaml" > /tmp/openapi-previous.yaml
+            echo "has_previous=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No previous tag found, skipping breaking change detection"
+            echo "has_previous=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for breaking changes
+        if: steps.prev-spec.outputs.has_previous == 'true'
+        uses: oasdiff/oasdiff-action/breaking@v0.0.21
+        with:
+          base: /tmp/openapi-previous.yaml
+          revision: openapi.yaml
+
   # ─── SDK build checks (verify generation works) ─────────────────────
   build-typescript:
     name: Build TypeScript SDK
