@@ -1211,7 +1211,7 @@
         ],
         "summary": "Trigger a full reindex of all artifacts and repositories in Meilisearch.",
         "description": "The reindex runs asynchronously in the background. The endpoint returns\nimmediately with a confirmation that the task was started.",
-        "operationId": "trigger_reindex",
+        "operationId": "trigger_search_reindex",
         "responses": {
           "200": {
             "description": "Reindex started in background",
@@ -4421,6 +4421,420 @@
             "bearer_auth": []
           }
         ]
+      }
+    },
+    "/api/v1/curation/packages": {
+      "get": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "list_curation_packages",
+        "parameters": [
+          {
+            "name": "staging_repo_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PackageResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/packages/bulk-approve": {
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "bulk_approve",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/packages/bulk-block": {
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "bulk_block",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BulkStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/packages/re-evaluate": {
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "re_evaluate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReEvaluateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/packages/{id}": {
+      "get": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "get_curation_package",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Package ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/packages/{id}/approve": {
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "approve_package",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Package ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/packages/{id}/block": {
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "block_package",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Package ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/rules": {
+      "get": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "list_curation_rules",
+        "parameters": [
+          {
+            "name": "staging_repo_id",
+            "in": "query",
+            "description": "Filter by staging repo",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RuleResponse"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "create_curation_rule",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateRuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/rules/{id}": {
+      "put": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "update_curation_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Rule ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateRuleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "delete_curation_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Rule ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/api/v1/curation/stats": {
+      "get": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "stats",
+        "parameters": [
+          {
+            "name": "staging_repo_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/dependency-track/analysis": {
@@ -14772,6 +15186,80 @@
         ]
       }
     },
+    "/api/v1/tree/content": {
+      "get": {
+        "tags": [
+          "repositories"
+        ],
+        "operationId": "get_content",
+        "parameters": [
+          {
+            "name": "repository_key",
+            "in": "query",
+            "description": "Repository key containing the artifact",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "description": "Full artifact path within the repository",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "max_bytes",
+            "in": "query",
+            "description": "Optional maximum number of bytes to return (truncates the response)",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact file content",
+            "content": {
+              "application/octet-stream": {}
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/users": {
       "get": {
         "tags": [
@@ -17387,6 +17875,25 @@
           }
         }
       },
+      "BulkStatusRequest": {
+        "type": "object",
+        "required": [
+          "ids",
+          "reason"
+        ],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
       "CacheTtlResponse": {
         "type": "object",
         "required": [
@@ -18734,6 +19241,13 @@
               "null"
             ],
             "description": "Custom format key for WASM plugin format handlers (e.g. \"rpm-custom\")."
+          },
+          "index_upstream_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Separate index host for Cargo registries that split index and download\nacross two hosts (e.g. crates.io uses `https://index.crates.io` for\nthe sparse index but `https://crates.io` for tarball downloads).\nStored in `repository_config` under the key `index_upstream_url`."
           },
           "is_public": {
             "type": [
@@ -21153,6 +21667,12 @@
           "checks": {
             "$ref": "#/components/schemas/HealthChecks"
           },
+          "commit": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
           "db_pool": {
             "oneOf": [
               {
@@ -21165,6 +21685,12 @@
           },
           "demo_mode": {
             "type": "boolean"
+          },
+          "dirty": {
+            "type": [
+              "boolean",
+              "null"
+            ]
           },
           "status": {
             "type": "string"
@@ -21197,13 +21723,9 @@
         "required": [
           "peer_id",
           "name",
-          "endpoint_url",
-          "api_key"
+          "endpoint_url"
         ],
         "properties": {
-          "api_key": {
-            "type": "string"
-          },
           "endpoint_url": {
             "type": "string"
           },
@@ -22647,6 +23169,32 @@
           }
         }
       },
+      "PackageListQuery": {
+        "type": "object",
+        "required": [
+          "staging_repo_id"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "staging_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
       "PackageListResponse": {
         "type": "object",
         "required": [
@@ -24033,6 +24581,22 @@
           }
         }
       },
+      "ReEvaluateRequest": {
+        "type": "object",
+        "required": [
+          "staging_repo_id",
+          "default_action"
+        ],
+        "properties": {
+          "default_action": {
+            "type": "string"
+          },
+          "staging_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "ReadyzChecks": {
         "type": "object",
         "required": [
@@ -24733,6 +25297,69 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "RuleResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "package_pattern",
+          "version_constraint",
+          "architecture",
+          "action",
+          "priority",
+          "reason",
+          "enabled",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          },
+          "created_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "package_pattern": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "staging_repo_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "updated_at": {
+            "type": "string"
+          },
+          "version_constraint": {
+            "type": "string"
           }
         }
       },
@@ -25769,6 +26396,53 @@
               "null"
             ],
             "format": "int64"
+          }
+        }
+      },
+      "StatsQuery": {
+        "type": "object",
+        "required": [
+          "staging_repo_id"
+        ],
+        "properties": {
+          "staging_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "StatsResponse": {
+        "type": "object",
+        "required": [
+          "staging_repo_id",
+          "counts"
+        ],
+        "properties": {
+          "counts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StatusCount"
+            }
+          },
+          "staging_repo_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "StatusCount": {
+        "type": "object",
+        "required": [
+          "status",
+          "count"
+        ],
+        "properties": {
+          "count": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string"
           }
         }
       },
@@ -27070,6 +27744,13 @@
               "string",
               "null"
             ]
+          },
+          "index_upstream_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Update the Cargo index upstream URL (stored in `repository_config`).\nWhen provided, upserts the `index_upstream_url` key for this repository."
           },
           "is_public": {
             "type": [

@@ -739,10 +739,11 @@ paths:
       tags:
       - admin
       summary: Trigger a full reindex of all artifacts and repositories in Meilisearch.
-      description: 'The reindex runs asynchronously in the background. The endpoint returns
+      description: 'The reindex runs asynchronously in the background. The endpoint
+        returns
 
         immediately with a confirmation that the task was started.'
-      operationId: trigger_reindex
+      operationId: trigger_search_reindex
       responses:
         '200':
           description: Reindex started in background
@@ -1763,7 +1764,8 @@ paths:
       tags:
       - approval
       summary: Approve a pending promotion request. Admin-only.
-      description: 'This copies the artifact from the staging repo to the release repo,
+      description: 'This copies the artifact from the staging repo to the release
+        repo,
 
         inserts the new artifact record, records promotion history, and
 
@@ -2329,7 +2331,8 @@ paths:
     post:
       tags:
       - auth
-      summary: 'Create a short-lived, single-use download/stream ticket for the current user.
+      summary: 'Create a short-lived, single-use download/stream ticket for the current
+        user.
 
         The ticket can be passed as a `?ticket=` query parameter on endpoints that
 
@@ -2418,7 +2421,8 @@ paths:
     post:
       tags:
       - auth
-      summary: Disable TOTP for the authenticated user (requires password and current TOTP code)
+      summary: Disable TOTP for the authenticated user (requires password and current
+        TOTP code)
       operationId: disable_totp
       requestBody:
         content:
@@ -2489,7 +2493,8 @@ paths:
     post:
       tags:
       - auth
-      summary: Verify TOTP code during login (exchanges totp_token + code for full auth tokens)
+      summary: Verify TOTP code during login (exchanges totp_token + code for full
+        auth tokens)
       operationId: verify_totp
       requestBody:
         content:
@@ -2706,6 +2711,265 @@ paths:
           description: Build not found
       security:
       - bearer_auth: []
+  /api/v1/curation/packages:
+    get:
+      tags:
+      - Curation
+      operationId: list_curation_packages
+      parameters:
+      - name: staging_repo_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: status
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      - name: offset
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PackageResponse'
+  /api/v1/curation/packages/bulk-approve:
+    post:
+      tags:
+      - Curation
+      operationId: bulk_approve
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkStatusRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            text/plain:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+  /api/v1/curation/packages/bulk-block:
+    post:
+      tags:
+      - Curation
+      operationId: bulk_block
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkStatusRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            text/plain:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+  /api/v1/curation/packages/re-evaluate:
+    post:
+      tags:
+      - Curation
+      operationId: re_evaluate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReEvaluateRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            text/plain:
+              schema:
+                type: integer
+                format: int64
+                minimum: 0
+  /api/v1/curation/packages/{id}:
+    get:
+      tags:
+      - Curation
+      operationId: get_curation_package
+      parameters:
+      - name: id
+        in: path
+        description: Package ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageResponse'
+  /api/v1/curation/packages/{id}/approve:
+    post:
+      tags:
+      - Curation
+      operationId: approve_package
+      parameters:
+      - name: id
+        in: path
+        description: Package ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageResponse'
+  /api/v1/curation/packages/{id}/block:
+    post:
+      tags:
+      - Curation
+      operationId: block_package
+      parameters:
+      - name: id
+        in: path
+        description: Package ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PackageResponse'
+  /api/v1/curation/rules:
+    get:
+      tags:
+      - Curation
+      operationId: list_curation_rules
+      parameters:
+      - name: staging_repo_id
+        in: query
+        description: Filter by staging repo
+        required: false
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RuleResponse'
+    post:
+      tags:
+      - Curation
+      operationId: create_curation_rule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRuleRequest'
+        required: true
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleResponse'
+  /api/v1/curation/rules/{id}:
+    put:
+      tags:
+      - Curation
+      operationId: update_curation_rule
+      parameters:
+      - name: id
+        in: path
+        description: Rule ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRuleRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleResponse'
+    delete:
+      tags:
+      - Curation
+      operationId: delete_curation_rule
+      parameters:
+      - name: id
+        in: path
+        description: Rule ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '204':
+          description: ''
+  /api/v1/curation/stats:
+    get:
+      tags:
+      - Curation
+      operationId: stats
+      parameters:
+      - name: staging_repo_id
+        in: query
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatsResponse'
   /api/v1/dependency-track/analysis:
     put:
       tags:
@@ -8284,7 +8548,8 @@ paths:
       tags:
       - service_accounts
       summary: Preview which repositories match a given repo selector.
-      description: 'Does not create or modify anything. Useful for testing selectors before
+      description: 'Does not create or modify anything. Useful for testing selectors
+        before
 
         attaching them to a token.'
       operationId: preview_repo_selector
@@ -9055,6 +9320,52 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
+  /api/v1/tree/content:
+    get:
+      tags:
+      - repositories
+      operationId: get_content
+      parameters:
+      - name: repository_key
+        in: query
+        description: Repository key containing the artifact
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: query
+        description: Full artifact path within the repository
+        required: true
+        schema:
+          type: string
+      - name: max_bytes
+        in: query
+        description: Optional maximum number of bytes to return (truncates the response)
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      responses:
+        '200':
+          description: Artifact file content
+          content:
+            application/octet-stream: {}
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Artifact not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
   /api/v1/users:
     get:
       tags:
@@ -9707,7 +10018,8 @@ paths:
       tags:
       - health
       summary: Health check endpoint — rich status page for dashboards.
-      description: 'Checks database, storage (real write/read probe), optional services (Trivy,
+      description: 'Checks database, storage (real write/read probe), optional services
+        (Trivy,
 
         Meilisearch), and exposes DB connection pool statistics.'
       operationId: health_check
@@ -9729,7 +10041,8 @@ paths:
       tags:
       - health
       summary: Liveness probe — confirms the process is alive and can serve HTTP.
-      description: 'Takes no State parameter. If Axum can route the request and execute this
+      description: 'Takes no State parameter. If Axum can route the request and execute
+        this
 
         function, the process is alive. External service failures cannot trigger
 
@@ -10114,7 +10427,8 @@ components:
             type: string
         match_tags:
           type: object
-          description: 'Tag selectors (AND semantics). Key = tag key, value = required tag value.
+          description: 'Tag selectors (AND semantics). Key = tag key, value = required
+            tag value.
 
             Empty value means "key must exist with any value".'
           additionalProperties:
@@ -10822,6 +11136,19 @@ components:
         total:
           type: integer
           minimum: 0
+    BulkStatusRequest:
+      type: object
+      required:
+      - ids
+      - reason
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        reason:
+          type: string
     CacheTtlResponse:
       type: object
       required:
@@ -11763,6 +12090,18 @@ components:
           - string
           - 'null'
           description: Custom format key for WASM plugin format handlers (e.g. "rpm-custom").
+        index_upstream_url:
+          type:
+          - string
+          - 'null'
+          description: 'Separate index host for Cargo registries that split index
+            and download
+
+            across two hosts (e.g. crates.io uses `https://index.crates.io` for
+
+            the sparse index but `https://crates.io` for tarball downloads).
+
+            Stored in `repository_config` under the key `index_upstream_url`.'
         is_public:
           type:
           - boolean
@@ -11946,11 +12285,13 @@ components:
           type:
           - object
           - 'null'
-          description: 'Dynamic repository selector (match by labels, formats, name pattern).
+          description: 'Dynamic repository selector (match by labels, formats, name
+            pattern).
 
             Mutually exclusive with `repository_ids`. When set, matched repos are
 
-            resolved at auth time so new repos that match the selector are picked up
+            resolved at auth time so new repos that match the selector are picked
+            up
 
             automatically.'
         repository_ids:
@@ -11960,7 +12301,8 @@ components:
           items:
             type: string
             format: uuid
-          description: Explicit repository IDs to restrict access to. Mutually exclusive with `repo_selector`.
+          description: Explicit repository IDs to restrict access to. Mutually exclusive
+            with `repo_selector`.
         scopes:
           type: array
           items:
@@ -13470,12 +13812,20 @@ components:
       properties:
         checks:
           $ref: '#/components/schemas/HealthChecks'
+        commit:
+          type:
+          - string
+          - 'null'
         db_pool:
           oneOf:
           - type: 'null'
           - $ref: '#/components/schemas/DbPoolStats'
         demo_mode:
           type: boolean
+        dirty:
+          type:
+          - boolean
+          - 'null'
         status:
           type: string
         version:
@@ -13498,10 +13848,7 @@ components:
       - peer_id
       - name
       - endpoint_url
-      - api_key
       properties:
-        api_key:
-          type: string
         endpoint_url:
           type: string
         name:
@@ -13818,7 +14165,8 @@ components:
           format: date-time
     LifecyclePolicy:
       type: object
-      description: A lifecycle policy attached to a repository (or global if repository_id is NULL).
+      description: A lifecycle policy attached to a repository (or global if repository_id
+        is NULL).
       required:
       - id
       - name
@@ -14527,6 +14875,24 @@ components:
         updated_at:
           type: string
           format: date-time
+    PackageListQuery:
+      type: object
+      required:
+      - staging_repo_id
+      properties:
+        limit:
+          type: integer
+          format: int64
+        offset:
+          type: integer
+          format: int64
+        staging_repo_id:
+          type: string
+          format: uuid
+        status:
+          type:
+          - string
+          - 'null'
     PackageListResponse:
       type: object
       required:
@@ -15526,6 +15892,17 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchResultItem'
+    ReEvaluateRequest:
+      type: object
+      required:
+      - staging_repo_id
+      - default_action
+      properties:
+        default_action:
+          type: string
+        staging_repo_id:
+          type: string
+          format: uuid
     ReadyzChecks:
       type: object
       required:
@@ -16017,6 +16394,52 @@ components:
           type: array
           items:
             type: string
+    RuleResponse:
+      type: object
+      required:
+      - id
+      - package_pattern
+      - version_constraint
+      - architecture
+      - action
+      - priority
+      - reason
+      - enabled
+      - created_at
+      - updated_at
+      properties:
+        action:
+          type: string
+        architecture:
+          type: string
+        created_at:
+          type: string
+        created_by:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        enabled:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        package_pattern:
+          type: string
+        priority:
+          type: integer
+          format: int32
+        reason:
+          type: string
+        staging_repo_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        updated_at:
+          type: string
+        version_constraint:
+          type: string
     SamlAcsForm:
       type: object
       required:
@@ -16755,6 +17178,38 @@ components:
           - integer
           - 'null'
           format: int64
+    StatsQuery:
+      type: object
+      required:
+      - staging_repo_id
+      properties:
+        staging_repo_id:
+          type: string
+          format: uuid
+    StatsResponse:
+      type: object
+      required:
+      - staging_repo_id
+      - counts
+      properties:
+        counts:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatusCount'
+        staging_repo_id:
+          type: string
+          format: uuid
+    StatusCount:
+      type: object
+      required:
+      - status
+      - count
+      properties:
+        count:
+          type: integer
+          format: int64
+        status:
+          type: string
     StorageGcRequest:
       type: object
       description: Request body for storage GC.
@@ -17173,7 +17628,8 @@ components:
           items:
             type: string
             format: uuid
-          description: Explicit repository IDs this token is restricted to (from join table).
+          description: Explicit repository IDs this token is restricted to (from join
+            table).
         scopes:
           type: array
           items:
@@ -17662,6 +18118,13 @@ components:
           type:
           - string
           - 'null'
+        index_upstream_url:
+          type:
+          - string
+          - 'null'
+          description: 'Update the Cargo index upstream URL (stored in `repository_config`).
+
+            When provided, upserts the `index_upstream_url` key for this repository.'
         is_public:
           type:
           - boolean
