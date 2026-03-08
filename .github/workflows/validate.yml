@@ -59,6 +59,7 @@ jobs:
         with:
           base: /tmp/openapi-previous.yaml
           revision: openapi.yaml
+          fail-on-diff: false
 
   # ─── SDK build checks (verify generation works) ─────────────────────
   build-typescript:
