@@ -46,7 +46,7 @@ jobs:
           PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
           if [ -n "$PREV_TAG" ]; then
             echo "Found previous tag: $PREV_TAG"
-            git show "$PREV_TAG:openapi.yaml" > /tmp/openapi-previous.yaml
+            git show "$PREV_TAG:openapi.yaml" > openapi-previous.yaml
             echo "has_previous=true" >> "$GITHUB_OUTPUT"
           else
             echo "No previous tag found, skipping breaking change detection"
@@ -55,11 +55,11 @@ jobs:
 
       - name: Check for breaking changes
         if: steps.prev-spec.outputs.has_previous == 'true'
+        continue-on-error: true
         uses: oasdiff/oasdiff-action/breaking@1c611ffb1253a72924624aa4fb662e302b3565d3 # v0.0.21
         with:
-          base: /tmp/openapi-previous.yaml
+          base: openapi-previous.yaml
           revision: openapi.yaml
-          fail-on-diff: false
 
   # ─── SDK build checks (verify generation works) ─────────────────────
   build-typescript:
