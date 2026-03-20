@@ -2372,6 +2372,39 @@
         ]
       }
     },
+    "/api/v1/admin/storage-backends": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List available storage backends.",
+        "description": "Returns the names of all configured and available storage backends.\nRequires admin privileges.",
+        "operationId": "list_storage_backends",
+        "responses": {
+          "200": {
+            "description": "Available storage backends",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/storage-gc": {
       "post": {
         "tags": [
@@ -11963,6 +11996,97 @@
         ]
       }
     },
+    "/api/v1/repositories/{key}/test-upstream": {
+      "post": {
+        "tags": [
+          "repositories"
+        ],
+        "summary": "Test connectivity to the upstream URL of a remote repository",
+        "operationId": "test_upstream",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Upstream reachable"
+          },
+          "400": {
+            "description": "Repository is not remote or has no upstream URL"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Repository not found"
+          },
+          "502": {
+            "description": "Upstream unreachable"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/upstream-auth": {
+      "put": {
+        "tags": [
+          "repositories"
+        ],
+        "summary": "Set or remove upstream auth for a remote repository",
+        "operationId": "set_upstream_auth",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpstreamAuthRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Upstream auth updated"
+          },
+          "400": {
+            "description": "Invalid auth type or missing fields"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/sbom": {
       "get": {
         "tags": [
@@ -15101,6 +15225,28 @@
             "bearer_auth": []
           }
         ]
+      }
+    },
+    "/api/v1/system/config": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Returns non-sensitive runtime configuration.",
+        "description": "The response includes upload limits, active storage backend, demo mode\nflag, and which optional services (Trivy, OpenSCAP, Dependency-Track,\nMeilisearch) are configured. No secrets or credentials are exposed.",
+        "operationId": "get_system_config",
+        "responses": {
+          "200": {
+            "description": "System configuration",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SystemConfigResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/v1/tree": {
@@ -19258,6 +19404,16 @@
           "key": {
             "type": "string"
           },
+          "member_repos": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CreateVirtualMemberInput"
+            },
+            "description": "Member repositories to add when creating a virtual repository.\nEach entry specifies a repository key and optional priority."
+          },
           "name": {
             "type": "string"
           },
@@ -19271,11 +19427,39 @@
           "repo_type": {
             "type": "string"
           },
+          "storage_backend": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Override the default storage backend for this repository.\nWhen omitted, the server's configured default is used.\nNon-admin users may only use the default backend."
+          },
+          "upstream_auth_type": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Upstream auth type: \"basic\" or \"bearer\". Only valid for remote repos."
+          },
+          "upstream_password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Password (basic) or token (bearer). Write-only, never returned in responses."
+          },
           "upstream_url": {
             "type": [
               "string",
               "null"
             ]
+          },
+          "upstream_username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Username for basic auth."
           }
         }
       },
@@ -19605,6 +19789,21 @@
           },
           "user": {
             "$ref": "#/components/schemas/AdminUserResponse"
+          }
+        }
+      },
+      "CreateVirtualMemberInput": {
+        "type": "object",
+        "required": [
+          "repo_key"
+        ],
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "repo_key": {
+            "type": "string"
           }
         }
       },
@@ -21575,6 +21774,16 @@
         "properties": {
           "database": {
             "$ref": "#/components/schemas/CheckStatus"
+          },
+          "ldap": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CheckStatus"
+              }
+            ]
           },
           "meilisearch": {
             "oneOf": [
@@ -24967,6 +25176,7 @@
           "repo_type",
           "is_public",
           "storage_used_bytes",
+          "upstream_auth_configured",
           "created_at",
           "updated_at"
         ],
@@ -25014,6 +25224,21 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "upstream_auth_configured": {
+            "type": "boolean"
+          },
+          "upstream_auth_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "upstream_url": {
+            "type": [
+              "string",
+              "null"
+            ]
           }
         }
       },
@@ -26707,6 +26932,51 @@
           }
         }
       },
+      "SystemConfigResponse": {
+        "type": "object",
+        "description": "Non-sensitive runtime configuration values.",
+        "required": [
+          "max_upload_size_bytes",
+          "demo_mode",
+          "storage_backend",
+          "trivy_enabled",
+          "openscap_enabled",
+          "dependency_track_enabled",
+          "meilisearch_enabled"
+        ],
+        "properties": {
+          "demo_mode": {
+            "type": "boolean",
+            "description": "Whether demo mode is active."
+          },
+          "dependency_track_enabled": {
+            "type": "boolean",
+            "description": "Whether Dependency-Track is configured."
+          },
+          "max_upload_size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Maximum upload size in bytes (0 = unlimited).",
+            "minimum": 0
+          },
+          "meilisearch_enabled": {
+            "type": "boolean",
+            "description": "Whether Meilisearch search is configured."
+          },
+          "openscap_enabled": {
+            "type": "boolean",
+            "description": "Whether OpenSCAP scanning is configured."
+          },
+          "storage_backend": {
+            "type": "string",
+            "description": "Default storage backend name (e.g. \"filesystem\", \"s3\", \"gcs\")."
+          },
+          "trivy_enabled": {
+            "type": "boolean",
+            "description": "Whether Trivy scanning is configured."
+          }
+        }
+      },
       "SystemSettings": {
         "type": "object",
         "required": [
@@ -28138,6 +28408,32 @@
           }
         }
       },
+      "UpstreamAuthRequest": {
+        "type": "object",
+        "required": [
+          "auth_type"
+        ],
+        "properties": {
+          "auth_type": {
+            "type": "string",
+            "description": "Auth type: \"basic\", \"bearer\", or \"none\" to remove."
+          },
+          "password": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Password (basic) or token (bearer). Write-only, never returned."
+          },
+          "username": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Username for basic auth."
+          }
+        }
+      },
       "UserListResponse": {
         "type": "object",
         "required": [
@@ -28248,10 +28544,10 @@
       "VirtualMembersListResponse": {
         "type": "object",
         "required": [
-          "items"
+          "members"
         ],
         "properties": {
-          "items": {
+          "members": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VirtualMemberResponse"
@@ -28564,6 +28860,10 @@
     {
       "name": "health",
       "description": "Health and readiness checks"
+    },
+    {
+      "name": "system",
+      "description": "System configuration and capabilities"
     },
     {
       "name": "repository-labels",
