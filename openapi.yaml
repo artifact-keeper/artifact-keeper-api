@@ -8,7 +8,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.0.0-rc.3
+  version: 1.1.0-rc.8
 servers:
 - url: /
   description: Current server
@@ -21290,6 +21290,10 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    api_key:
+      type: apiKey
+      in: header
+      name: X-API-Key
 tags:
 - name: auth
   description: Authentication and token management
