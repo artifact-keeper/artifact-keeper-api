@@ -11348,7 +11348,7 @@
           "quarantine"
         ],
         "summary": "Reject a quarantined artifact (admin only)",
-        "operationId": "reject_artifact",
+        "operationId": "reject_quarantined_artifact",
         "parameters": [
           {
             "name": "artifact_id",
