@@ -8,7 +8,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.0.0-rc.3
+  version: 1.2.1
 servers:
 - url: /
   description: Current server
@@ -1539,6 +1539,42 @@ paths:
                 $ref: '#/components/schemas/StorageGcResult'
       security:
       - bearer_auth: []
+  /api/v1/admin/storage-gc/oci-blob-report:
+    get:
+      tags:
+      - admin
+      summary: GET /api/v1/admin/storage-gc/oci-blob-report
+      description: 'Read-only report of the OCI blob (`oci_blobs`) storage footprint
+
+        (issue #1408). Performs no deletion and takes no locks — it only runs
+
+        aggregate `SELECT`s. Surfaces logical vs dedup-aware physical bytes so
+
+        operators can see how much un-reclaimed blob storage exists before any
+
+        garbage-collection sweep is enabled.'
+      operationId: oci_blob_report
+      parameters:
+      - name: grace_hours
+        in: query
+        description: 'Grace window in hours used to compute the `aged_*` figures. Defaults
+
+          to 24h; non-positive or out-of-range values are clamped server-side.'
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      responses:
+        '200':
+          description: OCI blob footprint report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OciBlobFootprintReport'
+      security:
+      - bearer_auth: []
   /api/v1/admin/telemetry/crashes:
     get:
       tags:
@@ -2166,6 +2202,11 @@ paths:
       - auth
       summary: Logout current session
       operationId: logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
       responses:
         '200':
           description: Logout successful, auth cookies cleared
@@ -2297,14 +2338,39 @@ paths:
           format: uuid
       - name: code
         in: query
-        required: true
+        required: false
         schema:
-          type: string
+          type:
+          - string
+          - 'null'
       - name: state
         in: query
-        required: true
+        required: false
         schema:
-          type: string
+          type:
+          - string
+          - 'null'
+      - name: error
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: error_description
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: error_uri
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
       responses:
         '307':
           description: Redirect to frontend with exchange code
@@ -2315,7 +2381,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
-          description: Invalid or expired SSO state (CSRF)
+          description: IdP error or invalid/expired SSO state
           content:
             application/json:
               schema:
@@ -3462,6 +3528,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GroupListResponse'
+        '401':
+          description: Authentication required
         '500':
           description: Internal server error
       security:
@@ -3535,6 +3603,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GroupDetailResponse'
+        '401':
+          description: Authentication required
         '404':
           description: Group not found
         '500':
@@ -7322,6 +7392,8 @@ paths:
           description: Authentication required
         '404':
           description: Artifact not found
+        '409':
+          description: Artifact is immutable (released) and cannot be deleted
       security:
       - bearer_auth: []
   /api/v1/repositories/{key}/cache-ttl:
@@ -7377,6 +7449,59 @@ paths:
           description: Authentication required
         '404':
           description: Repository not found
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/cache/invalidate:
+    post:
+      tags:
+      - repositories
+      summary: 'Invalidate a single cached artifact entry on a Remote (proxy) repository
+
+        (#1539).'
+      description: 'Mirrors the auth + repo-access pattern of `set_cache_ttl`. Idempotent:
+
+        invalidating a path that was never cached (or was already evicted) still
+
+        returns 200, matching the underlying `ProxyService::invalidate_cache`
+
+        contract (which ignores delete-of-missing on the storage backend).'
+      operationId: invalidate_cache
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: query
+        description: 'Artifact path to evict from the proxy cache. Same shape as the path
+
+          segment of `GET /api/v1/repositories/{key}/artifacts/{path}`.
+
+          Path-traversal segments such as `..` are rejected by
+
+          `ProxyService::cache_storage_key` (covered by
+
+          `test_invalidate_cache_by_key_rejects_invalid_path`).'
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Cache entry invalidated (or was already absent)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvalidateCacheResponse'
+        '400':
+          description: Validation error (e.g. non-remote repo or invalid path)
+        '401':
+          description: Authentication required
+        '404':
+          description: Repository not found
+        '503':
+          description: Proxy service not configured on this deployment
       security:
       - bearer_auth: []
   /api/v1/repositories/{key}/download/{path}:
@@ -7737,6 +7862,101 @@ paths:
           description: Authentication required
         '404':
           description: Repository or member not found
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/pypi-tracks:
+    get:
+      tags:
+      - repositories
+      summary: List the PEP 708 `tracks` declarations on a repository.
+      operationId: list_pypi_tracks
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: tracks declarations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PypiTracksListResponse'
+        '404':
+          description: Repository not found
+  /api/v1/repositories/{key}/pypi-tracks/{project}:
+    put:
+      tags:
+      - repositories
+      summary: 'Declare (upsert) that a locally-owned PyPI project tracks an upstream one,
+
+        allowing a virtual repository to merge versions across members for that name
+
+        instead of isolating it (PEP 708, #1600).'
+      operationId: put_pypi_track
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: project
+        in: path
+        description: Project name (PEP 503 normalized server-side)
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PypiTrackRequest'
+        required: true
+      responses:
+        '200':
+          description: tracks declaration stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PypiTrackResponse'
+        '400':
+          description: Invalid request or repository type
+        '401':
+          description: Authentication required
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+    delete:
+      tags:
+      - repositories
+      summary: 'Remove a PEP 708 `tracks` declaration, restoring local-precedence isolation
+
+        for that project name (#1600).'
+      operationId: delete_pypi_track
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: project
+        in: path
+        description: Project name (PEP 503 normalized server-side)
+        required: true
+        schema:
+          type: string
+      responses:
+        '204':
+          description: tracks declaration removed (idempotent)
+        '401':
+          description: Authentication required
+        '404':
+          description: Repository not found
       security:
       - bearer_auth: []
   /api/v1/repositories/{key}/routing-rules:
@@ -10392,6 +10612,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: Unauthorized
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: Repository not found
           content:
@@ -11890,6 +12116,32 @@ components:
       - download_count
       - created_at
       properties:
+        cache_cached_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: 'When the proxy cache entry for this artifact was last written.
+
+            Only populated for Remote (proxy) repositories whose proxy service is
+
+            configured AND that have a cache-metadata blob for this path. None
+
+            for Local / Virtual / Staging repos and for Remote repos whose cache
+
+            hasn''t been populated yet (e.g. an artifact that exists as a DB row
+
+            from a direct upload but has never been fetched through the proxy).
+
+            (#1541)'
+        cache_expires_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: 'When the proxy cache entry for this artifact will expire and be
+
+            re-validated against upstream. Same gating as `cache_cached_at`. (#1541)'
         checksum_sha256:
           type: string
         content_type:
@@ -13446,7 +13698,6 @@ components:
       required:
       - name
       - max_severity
-      - block_unscanned
       - block_on_fail
       properties:
         block_on_fail:
@@ -13581,6 +13832,15 @@ components:
             Each entry specifies a repository key and optional priority.'
         name:
           type: string
+        promotion_only:
+          type:
+          - boolean
+          - 'null'
+          description: 'When true, direct user uploads to this repository are rejected:
+
+            artifacts must arrive via the promotion path. Admin-only to set.
+
+            Defaults to false (no behavior change for existing repositories).'
         quota_bytes:
           type:
           - integer
@@ -13731,9 +13991,38 @@ components:
       - total_size
       - checksum_sha256
       properties:
+        artifact_metadata:
+          description: Source artifact metadata for peer replication.
+        artifact_metadata_format:
+          type:
+          - string
+          - 'null'
+          description: Source artifact metadata format for peer replication.
+        artifact_metadata_properties:
+          description: Source artifact metadata properties for peer replication.
+        artifact_name:
+          type:
+          - string
+          - 'null'
+          description: 'Artifact name to persist when the upload completes.
+
+
+            Optional for regular client uploads. Peer replication sets this from
+
+            the source artifact row so chunked replication preserves metadata.'
         artifact_path:
           type: string
           description: Path within the repository (e.g. "images/vm.ova")
+        artifact_version:
+          type:
+          - string
+          - 'null'
+          description: 'Artifact version to persist when the upload completes.
+
+
+            Optional for regular client uploads. Peer replication sets this from
+
+            the source artifact row so chunked replication preserves metadata.'
         checksum_sha256:
           type: string
           description: Expected SHA256 checksum of the complete file
@@ -13748,6 +14037,13 @@ components:
           - string
           - 'null'
           description: MIME content type (default "application/octet-stream")
+        package_description:
+          type:
+          - string
+          - 'null'
+          description: Source package description for peer replication.
+        package_metadata:
+          description: Source package catalog metadata for peer replication.
         repository_key:
           type: string
           description: Repository key (e.g. "my-repo")
@@ -15710,6 +16006,35 @@ components:
         path:
           type: string
           description: Local filesystem path to plugin directory
+    InvalidateCacheQuery:
+      type: object
+      required:
+      - path
+      properties:
+        path:
+          type: string
+          description: 'Artifact path to evict from the proxy cache. Same shape as the path
+
+            segment of `GET /api/v1/repositories/{key}/artifacts/{path}`.
+
+            Path-traversal segments such as `..` are rejected by
+
+            `ProxyService::cache_storage_key` (covered by
+
+            `test_invalidate_cache_by_key_rejects_invalid_path`).'
+    InvalidateCacheResponse:
+      type: object
+      required:
+      - repository_key
+      - path
+      - invalidated
+      properties:
+        invalidated:
+          type: boolean
+        path:
+          type: string
+        repository_key:
+          type: string
     IssueResponse:
       type: object
       required:
@@ -16715,6 +17040,112 @@ components:
           type:
           - string
           - 'null'
+    OciBlobFootprintReport:
+      type: object
+      description: 'Read-only OCI blob storage footprint report (issue #1408).
+
+
+        This is a **reporting-only** view. It performs no deletion and takes no
+
+        locks. It surfaces how much storage the tracked `oci_blobs` rows
+
+        account for so operators can see the magnitude of un-reclaimed blob
+
+        layers before any garbage-collection mechanism is enabled.
+
+
+        It deliberately does NOT attempt to classify which blobs are
+
+        "reclaimable orphans": that requires a manifest -> blob reference table
+
+        that does not yet exist in the schema, and any per-`(repository_id,
+
+        digest)` orphan heuristic would mis-handle the cross-repo dedup case
+
+        (multiple `oci_blobs` rows, one physical object) and report in-use
+
+        blobs as reclaimable. The numbers here are exact aggregates only.'
+      required:
+      - total_blob_rows
+      - distinct_digests
+      - logical_bytes
+      - physical_bytes
+      - grace_hours
+      - aged_distinct_digests
+      - aged_physical_bytes
+      - per_repository
+      properties:
+        aged_distinct_digests:
+          type: integer
+          format: int64
+          description: 'Distinct digests older than `grace_hours` (eligible to be *considered*
+
+            by a future GC sweep once a reference table exists). Reporting only.'
+        aged_physical_bytes:
+          type: integer
+          format: int64
+          description: Physical bytes (distinct-digest) older than `grace_hours`.
+        distinct_digests:
+          type: integer
+          format: int64
+          description: 'Number of distinct blob digests (content-addressed identities). When
+
+            this is smaller than `total_blob_rows`, the difference is cross-repo
+
+            deduplication: rows that share one physical storage object.'
+        grace_hours:
+          type: integer
+          format: int64
+          description: Grace window (hours) applied to the `aged_*` figures below.
+        logical_bytes:
+          type: integer
+          format: int64
+          description: 'Sum of `size_bytes` over every `oci_blobs` row. Double-counts
+
+            deduplicated blobs once per referencing repository.'
+        per_repository:
+          type: array
+          items:
+            $ref: '#/components/schemas/OciBlobRepoFootprint'
+          description: Per-repository logical footprint, largest `logical_bytes` first.
+        physical_bytes:
+          type: integer
+          format: int64
+          description: 'Sum of `size_bytes` counting each distinct digest exactly once. This
+
+            approximates the physical bytes occupied in the storage backend.'
+        total_blob_rows:
+          type: integer
+          format: int64
+          description: Total number of `oci_blobs` rows across all repositories.
+    OciBlobRepoFootprint:
+      type: object
+      description: Per-repository row in the OCI blob footprint report.
+      required:
+      - repository_id
+      - blob_rows
+      - logical_bytes
+      properties:
+        blob_rows:
+          type: integer
+          format: int64
+          description: Number of `oci_blobs` rows attributed to this repository.
+        logical_bytes:
+          type: integer
+          format: int64
+          description: 'Sum of `oci_blobs.size_bytes` for this repository''s rows. Because OCI
+
+            blob storage is content-addressed and deduplicated across repos, the
+
+            same physical bytes can be counted under more than one repository
+
+            here; see [`OciBlobFootprintReport::physical_bytes`] for the
+
+            dedup-aware total.'
+        repository_id:
+          type: string
+          format: uuid
+          description: Repository id owning these `oci_blobs` rows.
     OidcConfigResponse:
       type: object
       required:
@@ -17413,6 +17844,30 @@ components:
           type: string
         version:
           type: string
+    PluginSigningConfig:
+      type: object
+      description: 'Plugin signature-verification (supply-chain) policy status.
+
+
+        Exposes only booleans — never the trusted key material itself — so frontends
+
+        and operators can see whether unsigned plugin installs are rejected and
+
+        whether a trusted publisher key has been provisioned.'
+      required:
+      - required
+      - trusted_key_configured
+      properties:
+        required:
+          type: boolean
+          description: Whether a valid signature is required to install a WASM plugin.
+        trusted_key_configured:
+          type: boolean
+          description: 'Whether an operator trusted public key has been configured. When
+
+            `required` is true but this is false, every install is rejected
+
+            (fail-closed).'
     PluginStatus:
       type: string
       description: Plugin status
@@ -17809,6 +18264,44 @@ components:
         updated_at:
           type: string
           format: date-time
+    PypiTrackRequest:
+      type: object
+      description: Body for declaring that a locally-owned PyPI project tracks an upstream one.
+      required:
+      - tracks_url
+      properties:
+        tracks_url:
+          type: string
+          description: 'Upstream Simple index project URL this local project tracks, e.g.
+
+            `https://pypi.org/simple/acme-sdk/`. Recorded and emitted as the PEP 708
+
+            `tracks` value.'
+    PypiTrackResponse:
+      type: object
+      description: A single PEP 708 `tracks` declaration.
+      required:
+      - repository_key
+      - normalized_name
+      - tracks_url
+      properties:
+        normalized_name:
+          type: string
+          description: PEP 503 normalized project name.
+        repository_key:
+          type: string
+        tracks_url:
+          type: string
+    PypiTracksListResponse:
+      type: object
+      description: All `tracks` declarations on a repository.
+      required:
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PypiTrackResponse'
     QuarantineActionResponse:
       type: object
       required:
@@ -18204,6 +18697,7 @@ components:
       - repo_type
       - is_public
       - allow_anonymous_access
+      - promotion_only
       - storage_used_bytes
       - upstream_auth_configured
       - created_at
@@ -18234,6 +18728,26 @@ components:
           type: string
         name:
           type: string
+        promotion_only:
+          type: boolean
+          description: When true, direct user uploads are rejected; artifacts must be promoted.
+        quarantine_duration_minutes:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 'Configured quarantine hold duration in minutes, read back from
+
+            `repository_config` (#1770 B). `None` when unset.'
+        quarantine_enabled:
+          type:
+          - boolean
+          - 'null'
+          description: 'Whether the Package Age / quarantine policy is enabled for this
+
+            repository, read back from `repository_config` (#1770 B). `None` when
+
+            the repository has no explicit setting (the global default applies).'
         quota_bytes:
           type:
           - integer
@@ -19774,6 +20288,7 @@ components:
       - storage_backend
       - auth
       - permissions
+      - plugin_signing
       properties:
         auth:
           $ref: '#/components/schemas/AuthConfig'
@@ -19809,6 +20324,9 @@ components:
           description: 'Fine-grained permissions enforcement status. Permission rules can be
 
             managed via /api/v1/permissions and are actively enforced.'
+        plugin_signing:
+          $ref: '#/components/schemas/PluginSigningConfig'
+          description: Plugin signature-verification (supply-chain) policy status.
         scanners:
           $ref: '#/components/schemas/ScannersConfig'
           description: Scanner availability.
@@ -20688,6 +21206,13 @@ components:
           type:
           - string
           - 'null'
+        promotion_only:
+          type:
+          - boolean
+          - 'null'
+          description: 'When provided, enables/disables the `promotion_only` policy for this
+
+            repository (admin-only). When omitted, the flag is left unchanged.'
         quarantine_duration_minutes:
           type:
           - integer
