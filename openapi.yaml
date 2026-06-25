@@ -1,14 +1,31 @@
 openapi: 3.1.0
 info:
   title: Artifact Keeper API
-  description: Enterprise artifact registry supporting 45+ package formats.
+  description: 'Enterprise artifact registry supporting 45+ package formats.
+
+
+    ## Authentication
+
+
+    The JSON management API under `/api/v1/*` accepts **API tokens only as `Authorization: Bearer <token>`**. This is the
+    canonical scheme for programmatic access; JWTs issued by the login flow also use `Bearer`. HTTP Basic credentials on `/api/v1/*`
+    are validated *only* as a real `username:password` login — the password half is **not** retried as an API token. A request
+    to `/api/v1/*` that sends an API token in the password field of Basic auth therefore returns `401 AUTH_ERROR`; switch
+    to `Authorization: Bearer <token>`.
+
+
+    Format (package-manager) endpoints such as `/v2/*` (OCI), `/incus/*`, `/debian/*`, and the language registries are intentionally
+    more permissive for client compatibility: in addition to Bearer, they accept HTTP **Basic** auth with the API token supplied
+    in the *password* field (any username), matching the `pip` netrc / Artifactory-style `token:<api_token>` convention used
+    by package managers that cannot send a Bearer header. This Basic-with-token fallback applies to format endpoints only,
+    never to `/api/v1/*`.'
   contact:
     name: Artifact Keeper
     url: https://artifactkeeper.com
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.2.1
+  version: 1.2.2
 servers:
 - url: /
   description: Current server
@@ -3964,6 +3981,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/MigrationJobResponse'
+        '400':
+          description: Invalid request (e.g. unknown job_type)
+        '404':
+          description: Source connection not found
         '500':
           description: Internal server error
       security:
@@ -4935,6 +4956,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PeerResponse'
+        '400':
+          description: target_peer_id equals the source peer id
+        '404':
+          description: Source or target peer instance not found
       security:
       - bearer_auth: []
   /api/v1/peers/{id}/connections/{target_id}/unreachable:
@@ -5043,6 +5068,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PeerLabelsListResponse'
+        '403':
+          description: Admin access required
         '404':
           description: Peer instance not found
       security:
@@ -5080,6 +5107,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PeerLabelResponse'
+        '403':
+          description: Admin access required
         '404':
           description: Peer instance not found
       security:
@@ -5106,6 +5135,8 @@ paths:
       responses:
         '204':
           description: Label removed
+        '403':
+          description: Admin access required
         '404':
           description: Peer instance or label not found
       security:
@@ -5187,8 +5218,10 @@ paths:
       responses:
         '200':
           description: Repository assigned successfully
+        '400':
+          description: Invalid replication_mode
         '404':
-          description: Peer instance not found
+          description: Peer instance or repository not found
         '500':
           description: Internal server error
       security:
@@ -10473,18 +10506,24 @@ paths:
     get:
       tags:
       - system
-      summary: Return public runtime configuration.
-      description: 'No authentication required. This endpoint exposes only non-sensitive
+      summary: Return runtime configuration.
+      description: 'Reachable without authentication so frontends can discover pre-login
 
-        configuration values that help frontends adapt their behavior (e.g.
+        affordances (upload limits, guest access, available login providers). The
 
-        showing upload limits, conditionally rendering scanner UI, initiating
+        security-posture fields (scanner/auth-provider/permission/plugin-signing/
 
-        OIDC flows).'
+        storage configuration) are returned **only to authenticated admins**; for
+
+        anonymous and non-admin callers they are omitted so the instance''s
+
+        defensive configuration cannot be fingerprinted by an unauthenticated
+
+        attacker.'
       operationId: get_system_config
       responses:
         '200':
-          description: Public runtime configuration
+          description: Runtime configuration (security-posture fields admin-only)
           content:
             application/json:
               schema:
@@ -18959,6 +18998,13 @@ components:
           - string
           - 'null'
           description: Optional reviewer notes
+        skip_policy_check:
+          type: boolean
+          description: 'Admin break-glass override: skip promotion_rules enforcement at approve
+
+            time. Mirrors `skip_policy_check` on the single/bulk promote endpoints so
+
+            the approval-execute path has the same documented escape hatch.'
     RoleListResponse:
       type: object
       required:
@@ -20273,26 +20319,24 @@ components:
           type: string
     SystemConfigResponse:
       type: object
-      description: 'Public runtime configuration values.
-
-
-        This response intentionally omits all secrets, credentials, and internal
-
-        connection strings. Only values useful for UI/client behavior are included.'
+      description: "Runtime configuration values.\n\nThis response intentionally omits all secrets, credentials, and internal\n\
+        connection strings.\n\nDisclosure is tiered (see `get_system_config`):\n\n* **Public-safe fields** are always present\
+        \ — they only describe UI/client\n  affordances a caller needs *before* authenticating (upload limit, demo\n  mode,\
+        \ whether guest access and which login providers are available).\n* **Security-posture fields** (`scanners`, `search_engine`,\n\
+        \  `storage_backend`, `permissions`, `plugin_signing`) describe the\n  instance's defensive configuration. They are\
+        \ returned **only to\n  authenticated admins** and are omitted for anonymous / non-admin callers,\n  so the deployment's\
+        \ security posture cannot be fingerprinted by an\n  unauthenticated attacker."
       required:
       - max_upload_size_bytes
       - demo_mode
       - guest_access_enabled
-      - scanners
-      - search_engine
-      - storage_backend
       - auth
-      - permissions
-      - plugin_signing
       properties:
         auth:
           $ref: '#/components/schemas/AuthConfig'
-          description: Authentication provider availability.
+          description: 'Authentication provider availability. Needed by the login UI before the
+
+            user authenticates, so this is public-safe.'
         demo_mode:
           type: boolean
           description: Whether the instance is running in demo mode (writes blocked).
@@ -20320,22 +20364,40 @@ components:
 
             clients to initiate the OIDC flow.'
         permissions:
-          $ref: '#/components/schemas/PermissionsConfig'
-          description: 'Fine-grained permissions enforcement status. Permission rules can be
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PermissionsConfig'
+            description: 'Fine-grained permissions enforcement status. Permission rules can be
 
-            managed via /api/v1/permissions and are actively enforced.'
+              managed via /api/v1/permissions and are actively enforced.
+
+              Admin-only (security posture).'
         plugin_signing:
-          $ref: '#/components/schemas/PluginSigningConfig'
-          description: Plugin signature-verification (supply-chain) policy status.
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/PluginSigningConfig'
+            description: 'Plugin signature-verification (supply-chain) policy status.
+
+              Admin-only (security posture).'
         scanners:
-          $ref: '#/components/schemas/ScannersConfig'
-          description: Scanner availability.
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/ScannersConfig'
+            description: Scanner availability. Admin-only (security posture).
         search_engine:
-          type: string
-          description: 'Search engine type: "opensearch" when configured, "database" otherwise.'
+          type:
+          - string
+          - 'null'
+          description: 'Search engine type: "opensearch" when configured, "database" otherwise.
+
+            Admin-only (security posture).'
         storage_backend:
-          type: string
-          description: Storage backend type (e.g. "filesystem", "s3", "gcs", "azure").
+          type:
+          - string
+          - 'null'
+          description: 'Storage backend type (e.g. "filesystem", "s3", "gcs", "azure").
+
+            Admin-only (security posture).'
     SystemSettings:
       type: object
       required:
@@ -21811,10 +21873,16 @@ components:
 
         is rotated. The raw `secret` value is not retrievable afterwards.'
   securitySchemes:
+    basic_auth:
+      type: http
+      scheme: basic
+      description: Format (package-manager) endpoints only. Accepts a `username:password` login, or an API token in the password
+        field (any username) for `pip` netrc / Artifactory-style clients. Not accepted as a token carrier on `/api/v1/*`.
     bearer_auth:
       type: http
       scheme: bearer
       bearerFormat: JWT
+      description: 'Canonical scheme for `/api/v1/*`. Send an API token or a login-issued JWT as `Authorization: Bearer <token>`.'
 tags:
 - name: auth
   description: Authentication and token management
