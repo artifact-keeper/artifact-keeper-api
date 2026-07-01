@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.2.2"
+    "version": "1.2.4"
   },
   "servers": [
     {
@@ -4956,7 +4956,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateRuleRequest"
+                "$ref": "#/components/schemas/CurationCreateRuleRequest"
               }
             }
           },
@@ -4977,6 +4977,39 @@
       }
     },
     "/api/v1/curation/rules/{id}": {
+      "get": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "get_curation_rule",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Rule ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Rule not found"
+          }
+        }
+      },
       "put": {
         "tags": [
           "Curation"
@@ -4998,7 +5031,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateRuleRequest"
+                "$ref": "#/components/schemas/CurationUpdateRuleRequest"
               }
             }
           },
@@ -22306,6 +22339,74 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "CurationCreateRuleRequest": {
+        "type": "object",
+        "required": [
+          "package_pattern",
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "package_pattern": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "staging_repo_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid"
+          },
+          "version_constraint": {
+            "type": "string"
+          }
+        }
+      },
+      "CurationUpdateRuleRequest": {
+        "type": "object",
+        "required": [
+          "package_pattern",
+          "action",
+          "reason"
+        ],
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "package_pattern": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version_constraint": {
+            "type": "string"
           }
         }
       },
