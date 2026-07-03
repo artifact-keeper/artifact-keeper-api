@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.2.4"
+    "version": "1.2.5"
   },
   "servers": [
     {
@@ -16089,6 +16089,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Repository not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -18125,13 +18135,10 @@
             }
           },
           "422": {
-            "description": "Validation error"
+            "description": "Validation error, including: a secret was supplied but AK_WEBHOOK_SECRET_KEY is not configured, so the secret cannot be encrypted at rest (create the webhook without a secret, or have an administrator configure the signing key)"
           },
           "500": {
             "description": "Internal server error"
-          },
-          "503": {
-            "description": "A secret was supplied but AK_WEBHOOK_SECRET_KEY is not configured, so the secret cannot be encrypted at rest"
           }
         },
         "security": [
@@ -21887,6 +21894,13 @@
           },
           "sso_url": {
             "type": "string"
+          },
+          "use_absolute_acs_url": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Opt-in flag (see migration 139): when true, the SAML AuthnRequest\nemits an absolute ACS URL for stricter IdPs that reject the\nhistorical relative path. Defaults to false."
           }
         }
       },
@@ -28940,6 +28954,7 @@
           "sign_requests",
           "require_signed_assertions",
           "is_enabled",
+          "use_absolute_acs_url",
           "created_at",
           "updated_at"
         ],
@@ -28997,6 +29012,10 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "use_absolute_acs_url": {
+            "type": "boolean",
+            "description": "Opt-in flag (see migration 139): when true, the SAML AuthnRequest\nemits an absolute ACS URL. Defaults to false so existing providers\nkeep their pre-138 wire format."
           }
         }
       },
@@ -31854,6 +31873,12 @@
           "sso_url": {
             "type": [
               "string",
+              "null"
+            ]
+          },
+          "use_absolute_acs_url": {
+            "type": [
+              "boolean",
               "null"
             ]
           }
