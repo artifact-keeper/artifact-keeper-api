@@ -25,11 +25,125 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.3.0
+  version: 1.4.0
 servers:
 - url: /
   description: Current server
 paths:
+  /api/v1/admin/age-gate/reviews:
+    get:
+      tags:
+      - age-gate
+      operationId: list_reviews
+      parameters:
+      - name: repository_key
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateReviewListResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/age-gate/reviews/{id}:
+    get:
+      tags:
+      - age-gate
+      operationId: get_review
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateReviewResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/age-gate/reviews/{id}/approve:
+    post:
+      tags:
+      - age-gate
+      operationId: approve_review
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewActionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateReviewResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/age-gate/reviews/{id}/reject:
+    post:
+      tags:
+      - age-gate
+      operationId: reject_review
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewActionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateReviewResponse'
+      security:
+      - bearer_auth: []
   /api/v1/admin/analytics/artifacts/stale:
     get:
       tags:
@@ -433,6 +547,548 @@ paths:
           description: Backup not found
         '500':
           description: Internal server error
+      security:
+      - bearer_auth: []
+  /api/v1/admin/ci-oidc/:
+    get:
+      tags:
+      - admin
+      operationId: ci_oidc_list_providers
+      responses:
+        '200':
+          description: List CI OIDC providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CiOidcProviderResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    post:
+      tags:
+      - admin
+      operationId: create_provider
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCiOidcProviderRequest'
+        required: true
+      responses:
+        '200':
+          description: Create CI OIDC provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcProviderResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/ci-oidc/{id}:
+    get:
+      tags:
+      - admin
+      operationId: get_provider
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Get CI OIDC provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcProviderResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - admin
+      operationId: update_provider
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCiOidcProviderRequest'
+        required: true
+      responses:
+        '200':
+          description: Update CI OIDC provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcProviderResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    delete:
+      tags:
+      - admin
+      operationId: delete_provider
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Delete CI OIDC provider
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/ci-oidc/{id}/mappings:
+    get:
+      tags:
+      - admin
+      operationId: list_mappings
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: List identity mappings for provider
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CiOidcMappingResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    post:
+      tags:
+      - admin
+      operationId: create_mapping
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCiOidcMappingRequest'
+        required: true
+      responses:
+        '200':
+          description: Create identity mapping
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcMappingResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/ci-oidc/{id}/mappings/{mid}:
+    get:
+      tags:
+      - admin
+      operationId: get_mapping
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: mid
+        in: path
+        description: Identity mapping ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Get identity mapping
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcMappingResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Mapping not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - admin
+      operationId: update_mapping
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: mid
+        in: path
+        description: Identity mapping ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCiOidcMappingRequest'
+        required: true
+      responses:
+        '200':
+          description: Update identity mapping
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcMappingResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Mapping not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    delete:
+      tags:
+      - admin
+      operationId: delete_mapping
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: mid
+        in: path
+        description: Identity mapping ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: Delete identity mapping
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Mapping not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/ci-oidc/{id}/mappings/{mid}/toggle:
+    patch:
+      tags:
+      - admin
+      operationId: toggle_mapping
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: mid
+        in: path
+        description: Identity mapping ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CiOidcToggleRequest'
+        required: true
+      responses:
+        '200':
+          description: Toggle identity mapping
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcMappingResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Mapping not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/ci-oidc/{id}/toggle:
+    patch:
+      tags:
+      - admin
+      operationId: toggle_provider
+      parameters:
+      - name: id
+        in: path
+        description: CI OIDC provider ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CiOidcToggleRequest'
+        required: true
+      responses:
+        '200':
+          description: Toggle CI OIDC provider
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiOidcProviderResponse'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
   /api/v1/admin/cleanup:
@@ -2188,6 +2844,42 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/ci/token:
+    post:
+      tags:
+      - auth
+      summary: Exchange a CI-issued OIDC JWT for an Artifact Keeper access token.
+      description: 'The JWT must be supplied in the `Authorization: Bearer <jwt>` header.
+
+        The CI platform (GitLab / GitHub Actions / generic OIDC) must be
+
+        pre-configured by an administrator via `POST /api/v1/admin/ci-oidc`.'
+      operationId: exchange_ci_token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CiTokenRequest'
+        required: true
+      responses:
+        '200':
+          description: CI token exchange successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CiTokenResponse'
+        '401':
+          description: Invalid CI token or provider configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: CI OIDC provider not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/login:
     post:
       tags:
@@ -2753,6 +3445,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BuildListResponse'
+        '401':
+          description: Authentication required
+      security:
+      - bearer_auth: []
     post:
       tags:
       - builds
@@ -2801,6 +3497,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BuildDiffResponse'
+        '401':
+          description: Authentication required
+      security:
+      - bearer_auth: []
   /api/v1/builds/{id}:
     get:
       tags:
@@ -2822,8 +3522,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BuildResponse'
+        '401':
+          description: Authentication required
         '404':
           description: Build not found
+      security:
+      - bearer_auth: []
     put:
       tags:
       - builds
@@ -7286,6 +7990,51 @@ paths:
           description: Repository key already exists
       security:
       - bearer_auth: []
+  /api/v1/repositories/{key}/age-gate:
+    get:
+      tags:
+      - age-gate
+      operationId: get_repo_age_gate
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateConfigResponse'
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - age-gate
+      operationId: update_repo_age_gate
+      parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAgeGateConfigRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateConfigResponse'
+      security:
+      - bearer_auth: []
   /api/v1/repositories/{key}/artifacts:
     get:
       tags:
@@ -10915,6 +11664,114 @@ paths:
           description: Validation error
       security:
       - bearer_auth: []
+  /api/v1/users/me:
+    get:
+      tags:
+      - users
+      summary: Get the authenticated caller's own user record.
+      operationId: get_current_user_record
+      responses:
+        '200':
+          description: The authenticated caller's user record
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserResponse'
+        '404':
+          description: User not found
+      security:
+      - bearer_auth: []
+  /api/v1/users/me/password:
+    post:
+      tags:
+      - users
+      summary: Change the authenticated caller's own password.
+      description: 'Resolves the subject to `auth.user_id`, so the shared
+
+        `change_password_inner` requires the current password (non-admin self path)
+
+        exactly as `POST /users/:id/password` does. Registered in
+
+        `self_password_router` so it inherits the password-change rate limit (#1026).'
+      operationId: change_current_user_password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      responses:
+        '200':
+          description: Password changed successfully
+        '401':
+          description: Current password is incorrect
+        '404':
+          description: User not found
+        '422':
+          description: Validation error
+      security:
+      - bearer_auth: []
+  /api/v1/users/me/tokens:
+    get:
+      tags:
+      - users
+      summary: List the authenticated caller's own API tokens.
+      operationId: list_current_user_tokens
+      responses:
+        '200':
+          description: List of the caller's API tokens
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTokenListResponse'
+      security:
+      - bearer_auth: []
+    post:
+      tags:
+      - users
+      summary: Create an API token for the authenticated caller.
+      description: 'The #1315 admin-only-scope enforcement is applied inside
+
+        `create_api_token_inner`, so a non-admin cannot mint `*`/`admin`/`delete:*`/
+
+        `write:users` tokens via this alias any more than via `/users/:id/tokens`.'
+      operationId: create_current_user_api_token
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiTokenRequest'
+        required: true
+      responses:
+        '200':
+          description: API token created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiTokenCreatedResponse'
+        '403':
+          description: Requested scopes require administrator privileges
+      security:
+      - bearer_auth: []
+  /api/v1/users/me/tokens/{token_id}:
+    delete:
+      tags:
+      - users
+      summary: Revoke one of the authenticated caller's own API tokens.
+      operationId: revoke_current_user_api_token
+      parameters:
+      - name: token_id
+        in: path
+        description: API token ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        '200':
+          description: API token revoked successfully
+      security:
+      - bearer_auth: []
   /api/v1/users/{id}:
     get:
       tags:
@@ -11763,6 +12620,83 @@ components:
             $ref: '#/components/schemas/SearchResultItem'
         pagination:
           $ref: '#/components/schemas/PaginationInfo'
+    AgeGateConfigResponse:
+      type: object
+      required:
+      - repository_key
+      - enabled
+      - min_age_days
+      properties:
+        enabled:
+          type: boolean
+        min_age_days:
+          type: integer
+          format: int32
+        repository_key:
+          type: string
+    AgeGateReviewListResponse:
+      type: object
+      required:
+      - items
+      - pagination
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AgeGateReviewResponse'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+    AgeGateReviewResponse:
+      type: object
+      required:
+      - id
+      - repository_key
+      - package_name
+      - package_version
+      - status
+      - requested_at
+      - request_count
+      - last_requested_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        last_requested_at:
+          type: string
+          format: date-time
+        package_name:
+          type: string
+        package_version:
+          type: string
+        repository_key:
+          type: string
+        request_count:
+          type: integer
+          format: int32
+        requested_at:
+          type: string
+          format: date-time
+        review_reason:
+          type:
+          - string
+          - 'null'
+        reviewed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+        reviewed_by:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        status:
+          type: string
+        upstream_published_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
     AlertState:
       type: object
       description: Alert state for a service.
@@ -12180,7 +13114,29 @@ components:
       - content_type
       - download_count
       - created_at
+      - analyzable
       properties:
+        analyzable:
+          type: boolean
+          description: 'Whether this artifact can have an SBOM generated or a security scan
+
+            run against it. `false` for proxy-cached (Remote) objects: those are
+
+            listed with a synthetic, SHA-256-derived id (see
+
+            [`cached_artifact_id`]) and have no row in the `artifacts` table
+
+            (#1280/#1278), so SBOM/scan lookups by `artifacts.id` cannot resolve
+
+            them and `sbom_documents`/`scan_results` cannot reference them.
+
+            `true` for hosted artifacts, which carry a real DB id. The web UI
+
+            uses this to hide/disable the "Generate SBOM" / "Scan" actions where
+
+            they cannot work; clients that predate the field should treat an
+
+            absent value as `true` so hosted artifacts are never hidden. (#2227)'
         cache_cached_at:
           type:
           - string
@@ -13088,6 +14044,130 @@ components:
         chunks_remaining:
           type: integer
           format: int32
+    CiOidcMappingResponse:
+      type: object
+      required:
+      - id
+      - provider_id
+      - name
+      - priority
+      - claim_filters
+      - is_enabled
+      - created_at
+      - updated_at
+      properties:
+        allowed_repo_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            format: uuid
+        claim_filters: {}
+        created_at:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        is_enabled:
+          type: boolean
+        name:
+          type: string
+        priority:
+          type: integer
+          format: int32
+        provider_id:
+          type: string
+          format: uuid
+        updated_at:
+          type: string
+          format: date-time
+    CiOidcProviderResponse:
+      type: object
+      required:
+      - id
+      - name
+      - provider_type
+      - issuer_url
+      - audience
+      - is_enabled
+      - mapping_count
+      - created_at
+      - updated_at
+      properties:
+        audience:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        id:
+          type: string
+          format: uuid
+        is_enabled:
+          type: boolean
+        issuer_url:
+          type: string
+        mapping_count:
+          type: integer
+          format: int64
+        name:
+          type: string
+        provider_type:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    CiOidcToggleRequest:
+      type: object
+      description: Body for toggle endpoint.
+      required:
+      - enabled
+      properties:
+        enabled:
+          type: boolean
+    CiTokenRequest:
+      type: object
+      required:
+      - provider_id
+      properties:
+        provider_id:
+          type: string
+          format: uuid
+          description: UUID of the `ci_oidc_providers` row to use for validation.
+    CiTokenResponse:
+      type: object
+      required:
+      - access_token
+      - token_type
+      - expires_in
+      - username
+      properties:
+        access_token:
+          type: string
+          description: Short-lived Artifact Keeper access token.
+        expires_in:
+          type: integer
+          format: int64
+          description: 'Lifetime in seconds (default 900 = 15 min).
+
+
+            Docker caches credentials and does not auto-refresh. Re-exchange the
+
+            CI JWT before each `docker push` step if the pipeline runs longer
+
+            than this window.'
+          minimum: 0
+        token_type:
+          type: string
+        username:
+          type: string
+          description: 'The provisioned CI service-account username.
+
+
+            Use this directly as `docker login --username` — no separate
+
+            `GET /api/v1/auth/me` call is needed.'
     CleanupRequest:
       type: object
       properties:
@@ -13452,6 +14532,53 @@ components:
           type:
           - string
           - 'null'
+    CreateCiOidcMappingRequest:
+      type: object
+      required:
+      - name
+      - claim_filters
+      properties:
+        allowed_repo_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            format: uuid
+        claim_filters: {}
+        is_enabled:
+          type:
+          - boolean
+          - 'null'
+        name:
+          type: string
+        priority:
+          type:
+          - integer
+          - 'null'
+          format: int32
+    CreateCiOidcProviderRequest:
+      type: object
+      required:
+      - name
+      - issuer_url
+      properties:
+        audience:
+          type:
+          - string
+          - 'null'
+        is_enabled:
+          type:
+          - boolean
+          - 'null'
+        issuer_url:
+          type: string
+        name:
+          type: string
+        provider_type:
+          type:
+          - string
+          - 'null'
     CreateConnectionRequest:
       type: object
       required:
@@ -13695,6 +14822,19 @@ components:
       - client_id
       - client_secret
       properties:
+        allow_legacy_rsa_keys:
+          type:
+          - boolean
+          - 'null'
+          description: 'Opt-in compatibility flag (migration 144): when `true` the provider
+
+            accepts ID tokens signed with RSA keys shorter than 2048 bits via a
+
+            restricted RS256/384/512 PKCS#1 v1.5 fallback path. Defaults to
+
+            `false`. Below the OWASP ASVS 4.0 baseline; only enable for legacy
+
+            IdPs such as Lark AnyCross.'
         attribute_mapping:
           type:
           - object
@@ -13906,6 +15046,15 @@ components:
             artifacts must arrive via the promotion path. Admin-only to set.
 
             Defaults to false (no behavior change for existing repositories).'
+        pypi_upstream_index_path:
+          type:
+          - string
+          - 'null'
+          description: "Override the PyPI simple-index prefix for upstreams that do not follow\nthe standard PEP 503 `/simple/`\
+            \ layout (issue #1546).\n\n- Omit or `\"simple\"` — standard PEP 503 (pypi.org, devpi, Nexus). Default.\n- `\"\
+            \"` (empty) — flat CDN (e.g. `https://download.pytorch.org/whl/cpu`):\n  package files are served directly under\
+            \ the upstream root with no prefix.\n- Any other non-empty string — custom index prefix.\n\nStored in `repository_config`\
+            \ under `pypi_upstream_index_path`.\nOnly meaningful for PyPI / Poetry / Conda Remote repositories."
         quota_bytes:
           type:
           - integer
@@ -17281,9 +18430,19 @@ components:
       - auto_create_users
       - pkce_enabled
       - map_groups_to_groups
+      - allow_legacy_rsa_keys
       - created_at
       - updated_at
       properties:
+        allow_legacy_rsa_keys:
+          type: boolean
+          description: 'Opt-in compatibility flag (migration 144): when true the OIDC
+
+            provider accepts ID tokens signed with RSA keys shorter than
+
+            2048 bits via a restricted RS256/384/512 PKCS#1 v1.5 path.
+
+            Below the OWASP ASVS 4.0 baseline; only enable for legacy IdPs.'
         attribute_mapping:
           type: object
         auto_create_users:
@@ -19072,6 +20231,36 @@ components:
           type: array
           items:
             type: string
+    ReviewActionRequest:
+      type: object
+      properties:
+        reason:
+          type:
+          - string
+          - 'null'
+    ReviewListQuery:
+      type: object
+      properties:
+        page:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        per_page:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        repository_key:
+          type:
+          - string
+          - 'null'
+        status:
+          type:
+          - string
+          - 'null'
     ReviewRequest:
       type: object
       properties:
@@ -20995,6 +22184,17 @@ components:
           type:
           - boolean
           - 'null'
+    UpdateAgeGateConfigRequest:
+      type: object
+      required:
+      - enabled
+      - min_age_days
+      properties:
+        enabled:
+          type: boolean
+        min_age_days:
+          type: integer
+          format: int32
     UpdateAnalysisBody:
       type: object
       required:
@@ -21048,6 +22248,53 @@ components:
         total_chunks:
           type: integer
           format: int32
+    UpdateCiOidcMappingRequest:
+      type: object
+      properties:
+        allowed_repo_ids:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            format: uuid
+        claim_filters: {}
+        is_enabled:
+          type:
+          - boolean
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+        priority:
+          type:
+          - integer
+          - 'null'
+          format: int32
+    UpdateCiOidcProviderRequest:
+      type: object
+      properties:
+        audience:
+          type:
+          - string
+          - 'null'
+        is_enabled:
+          type:
+          - boolean
+          - 'null'
+        issuer_url:
+          type:
+          - string
+          - 'null'
+        name:
+          type:
+          - string
+          - 'null'
+        provider_type:
+          type:
+          - string
+          - 'null'
     UpdateCveStatusRequest:
       type: object
       required:
@@ -21198,6 +22445,10 @@ components:
     UpdateOidcConfigRequest:
       type: object
       properties:
+        allow_legacy_rsa_keys:
+          type:
+          - boolean
+          - 'null'
         attribute_mapping:
           type:
           - object
@@ -21377,6 +22628,17 @@ components:
           description: 'When provided, enables/disables the `promotion_only` policy for this
 
             repository (admin-only). When omitted, the flag is left unchanged.'
+        pypi_upstream_index_path:
+          type:
+          - string
+          - 'null'
+          description: 'Update the PyPI simple-index prefix (stored in `repository_config` under
+
+            `pypi_upstream_index_path`). Pass `""` for flat CDN layout, `"simple"` to
+
+            restore the PEP 503 default, or any other non-empty string for a custom prefix.
+
+            Only meaningful for PyPI / Poetry / Conda Remote repositories.'
         quarantine_duration_minutes:
           type:
           - integer
@@ -21870,6 +23132,9 @@ components:
       - build_started
       - build_completed
       - build_failed
+      - age_gate_queued
+      - age_gate_approved
+      - age_gate_rejected
     WebhookListResponse:
       type: object
       required:
@@ -22042,6 +23307,8 @@ tags:
   description: Artifact quarantine period management
 - name: quality
   description: Artifact health scoring and quality gates
+- name: age-gate
+  description: Age-based proxy quality gate
 - name: service_accounts
   description: Service account management
 - name: health
