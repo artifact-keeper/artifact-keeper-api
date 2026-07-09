@@ -873,7 +873,7 @@
         ]
       }
     },
-    "/api/v1/admin/ci-oidc/": {
+    "/api/v1/admin/ci-oidc": {
       "get": {
         "tags": [
           "admin"
@@ -2006,7 +2006,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdatePolicyRequest"
+                "$ref": "#/components/schemas/UpdateLifecyclePolicyRequest"
               }
             }
           },
@@ -11839,24 +11839,10 @@
           {
             "name": "artifact_id",
             "in": "query",
-            "required": false,
+            "description": "Artifact ID to list quality check results for",
+            "required": true,
             "schema": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "format": "uuid"
-            }
-          },
-          {
-            "name": "repository_id",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": [
-                "string",
-                "null"
-              ],
+              "type": "string",
               "format": "uuid"
             }
           }
@@ -11871,6 +11857,16 @@
                   "items": {
                     "$ref": "#/components/schemas/CheckResponse"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid artifact_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -13188,7 +13184,7 @@
           "required": true
         },
         "responses": {
-          "200": {
+          "201": {
             "description": "Artifact uploaded",
             "content": {
               "application/json": {
@@ -33407,6 +33403,49 @@
               "string",
               "null"
             ]
+          }
+        }
+      },
+      "UpdateLifecyclePolicyRequest": {
+        "type": "object",
+        "description": "Request to update a lifecycle policy.",
+        "properties": {
+          "config": {
+            "type": [
+              "object",
+              "null"
+            ]
+          },
+          "cron_schedule": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "priority": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32"
           }
         }
       },
