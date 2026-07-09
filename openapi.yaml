@@ -1149,7 +1149,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreatePolicyRequest'
+              $ref: '#/components/schemas/CreateLifecyclePolicyRequest'
         required: true
       responses:
         '200':
@@ -1449,7 +1449,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReindexResponse'
+                $ref: '#/components/schemas/SearchReindexResponse'
         '500':
           description: Search engine is not configured
   /api/v1/admin/settings:
@@ -3632,7 +3632,7 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/PackageResponse'
+                  $ref: '#/components/schemas/CurationPackageResponse'
   /api/v1/curation/packages/bulk-approve:
     post:
       tags:
@@ -3712,7 +3712,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PackageResponse'
+                $ref: '#/components/schemas/CurationPackageResponse'
   /api/v1/curation/packages/{id}/approve:
     post:
       tags:
@@ -3732,7 +3732,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PackageResponse'
+                $ref: '#/components/schemas/CurationPackageResponse'
   /api/v1/curation/packages/{id}/block:
     post:
       tags:
@@ -3752,7 +3752,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PackageResponse'
+                $ref: '#/components/schemas/CurationPackageResponse'
   /api/v1/curation/rules:
     get:
       tags:
@@ -11737,7 +11737,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateApiTokenRequest'
+              $ref: '#/components/schemas/CreateUserApiTokenRequest'
         required: true
       responses:
         '200':
@@ -12060,7 +12060,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateApiTokenRequest'
+              $ref: '#/components/schemas/CreateUserApiTokenRequest'
         required: true
       responses:
         '200':
@@ -14796,6 +14796,38 @@ components:
           type:
           - string
           - 'null'
+    CreateLifecyclePolicyRequest:
+      type: object
+      description: Request to create a lifecycle policy.
+      required:
+      - name
+      - policy_type
+      - config
+      properties:
+        config:
+          type: object
+        cron_schedule:
+          type:
+          - string
+          - 'null'
+        description:
+          type:
+          - string
+          - 'null'
+        name:
+          type: string
+        policy_type:
+          type: string
+        priority:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        repository_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
     CreateMigrationRequest:
       type: object
       required:
@@ -15391,6 +15423,23 @@ components:
           type: string
         token:
           type: string
+    CreateUserApiTokenRequest:
+      type: object
+      required:
+      - name
+      - scopes
+      properties:
+        expires_in_days:
+          type:
+          - integer
+          - 'null'
+          format: int64
+        name:
+          type: string
+        scopes:
+          type: array
+          items:
+            type: string
     CreateUserRequest:
       type: object
       required:
@@ -15561,6 +15610,73 @@ components:
           - 'null'
           format: uuid
         version_constraint:
+          type: string
+    CurationPackageResponse:
+      type: object
+      required:
+      - id
+      - staging_repo_id
+      - remote_repo_id
+      - format
+      - package_name
+      - version
+      - upstream_path
+      - status
+      - metadata
+      - first_seen_at
+      properties:
+        architecture:
+          type:
+          - string
+          - 'null'
+        checksum_sha256:
+          type:
+          - string
+          - 'null'
+        evaluated_at:
+          type:
+          - string
+          - 'null'
+        evaluated_by:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        evaluation_reason:
+          type:
+          - string
+          - 'null'
+        first_seen_at:
+          type: string
+        format:
+          type: string
+        id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+        package_name:
+          type: string
+        release:
+          type:
+          - string
+          - 'null'
+        remote_repo_id:
+          type: string
+          format: uuid
+        rule_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        staging_repo_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+        upstream_path:
+          type: string
+        version:
           type: string
     CurationUpdateRuleRequest:
       type: object
@@ -18226,6 +18342,26 @@ components:
         transferred_bytes:
           type: integer
           format: int64
+    MigrationPaginationInfo:
+      type: object
+      required:
+      - page
+      - per_page
+      - total
+      - total_pages
+      properties:
+        page:
+          type: integer
+          format: int64
+        per_page:
+          type: integer
+          format: int64
+        total:
+          type: integer
+          format: int64
+        total_pages:
+          type: integer
+          format: int64
     MigrationReportResponse:
       type: object
       required:
@@ -19691,15 +19827,19 @@ components:
           type: object
     ReindexResponse:
       type: object
-      description: Response returned when a reindex is triggered.
       required:
-      - status
       - message
+      - artifacts_indexed
+      - repositories_indexed
       properties:
+        artifacts_indexed:
+          type: integer
+          format: int64
         message:
           type: string
-        status:
-          type: string
+        repositories_indexed:
+          type: integer
+          format: int64
     RejectArtifactRequest:
       type: object
       required:
@@ -20829,6 +20969,17 @@ components:
         score:
           type: number
           format: double
+    SearchReindexResponse:
+      type: object
+      description: Response returned when a reindex is triggered.
+      required:
+      - status
+      - message
+      properties:
+        message:
+          type: string
+        status:
+          type: string
     SearchResultItem:
       type: object
       description: A unified search result matching the frontend `SearchResult` interface.
