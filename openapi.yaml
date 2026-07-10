@@ -25,7 +25,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.4.1
+  version: 1.4.2
 servers:
 - url: /
   description: Current server
