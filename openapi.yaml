@@ -343,6 +343,105 @@ paths:
                   $ref: '#/components/schemas/StorageSnapshot'
       security:
       - bearer_auth: []
+  /api/v1/admin/audit:
+    get:
+      tags:
+      - admin
+      summary: Query the audit log (admin only).
+      description: 'Returns recorded audit events ordered newest-first, filtered by any
+
+        combination of actor/user, action, resource type/id, and time range, with
+
+        page/per_page pagination. Backed by the `audit_log` table and
+
+        [`AuditService::query`]; admin-only both via the `/admin` `admin_middleware`
+
+        and a defense-in-depth check here (#2366).'
+      operationId: list_audit_logs
+      parameters:
+      - name: user_id
+        in: query
+        description: Filter by acting/subject user id.
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      - name: action
+        in: query
+        description: Filter by action string (e.g. `LOGIN`, `USER_CREATED`, `ARTIFACT_DOWNLOADED`).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: resource_type
+        in: query
+        description: Filter by resource type (e.g. `user`, `repository`, `artifact`).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: resource_id
+        in: query
+        description: Filter by the affected resource id.
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      - name: from
+        in: query
+        description: Inclusive lower time bound (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      - name: to
+        in: query
+        description: Inclusive upper time bound (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+          format: date-time
+      - name: page
+        in: query
+        description: 1-based page index (default 1).
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        description: Page size (default 50, max 200).
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: Audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogListResponse'
+        '403':
+          description: Admin privileges required
+      security:
+      - bearer_auth: []
   /api/v1/admin/backups:
     get:
       tags:
@@ -1114,6 +1213,222 @@ paths:
           description: Internal server error
       security:
       - bearer_auth: []
+  /api/v1/admin/downloads:
+    get:
+      tags:
+      - admin
+      summary: 'List attributed downloads (client IP + user), filterable by artifact,
+
+        user, IP, and time range (#2365). Admin-only: download attribution is
+
+        sensitive.'
+      operationId: list_downloads
+      parameters:
+      - name: artifact_id
+        in: query
+        description: Filter to downloads of one artifact.
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      - name: user_id
+        in: query
+        description: Filter to downloads by one user.
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+          format: uuid
+      - name: ip
+        in: query
+        description: Filter to downloads from one client IP (exact match).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: from
+        in: query
+        description: Inclusive lower bound on `downloaded_at` (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: to
+        in: query
+        description: Inclusive upper bound on `downloaded_at` (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: Attributed download events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadListResponse'
+        '400':
+          description: Invalid filter parameter
+        '403':
+          description: Admin privileges required
+      security:
+      - bearer_auth: []
+  /api/v1/admin/downloads/by-ip/{ip}:
+    get:
+      tags:
+      - admin
+      summary: 'Downloads originating from one client IP: "what did this network
+
+        location pull?" (#2365).'
+      operationId: list_downloads_by_ip
+      parameters:
+      - name: ip
+        in: path
+        description: Client IP address
+        required: true
+        schema:
+          type: string
+      - name: artifact_id
+        in: query
+        description: Filter to downloads of one artifact
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: user_id
+        in: query
+        description: Filter to downloads by one user
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        description: Inclusive lower bound on downloaded_at (RFC 3339)
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        description: Inclusive upper bound on downloaded_at (RFC 3339)
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: Downloads from the IP
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadListResponse'
+        '400':
+          description: Invalid IP address
+        '403':
+          description: Admin privileges required
+      security:
+      - bearer_auth: []
+  /api/v1/admin/downloads/by-user/{user_id}:
+    get:
+      tags:
+      - admin
+      summary: 'Downloads performed by one user: "what did this user pull?" (#2365).'
+      operationId: list_downloads_by_user
+      parameters:
+      - name: user_id
+        in: path
+        description: User id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: artifact_id
+        in: query
+        description: Filter to downloads of one artifact
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: ip
+        in: query
+        description: Filter to downloads from one client IP (exact match)
+        required: false
+        schema:
+          type: string
+      - name: from
+        in: query
+        description: Inclusive lower bound on downloaded_at (RFC 3339)
+        required: false
+        schema:
+          type: string
+      - name: to
+        in: query
+        description: Inclusive upper bound on downloaded_at (RFC 3339)
+        required: false
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: Downloads by the user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadListResponse'
+        '403':
+          description: Admin privileges required
+      security:
+      - bearer_auth: []
   /api/v1/admin/lifecycle:
     get:
       tags:
@@ -1452,6 +1767,135 @@ paths:
                 $ref: '#/components/schemas/SearchReindexResponse'
         '500':
           description: Search engine is not configured
+  /api/v1/admin/security/artifact/{artifact_id}/blast-radius:
+    get:
+      tags:
+      - admin
+      summary: 'Blast radius for one artifact: who downloaded it, regardless of which
+
+        CVE flagged it (#2364).'
+      operationId: artifact_blast_radius
+      parameters:
+      - name: artifact_id
+        in: path
+        description: Artifact id
+        required: true
+        schema:
+          type: string
+          format: uuid
+      - name: from
+        in: query
+        description: Inclusive lower bound on `downloaded_at` (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: to
+        in: query
+        description: Inclusive upper bound on `downloaded_at` (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: page
+        in: query
+        description: 1-based page over the downloaders list.
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        description: Downloaders per page (1..=100, default 20).
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: Blast-radius report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlastRadiusResponse'
+        '400':
+          description: Invalid parameter
+        '403':
+          description: Admin privileges required
+      security:
+      - bearer_auth: []
+  /api/v1/admin/security/cve/{cve_id}/blast-radius:
+    get:
+      tags:
+      - admin
+      summary: 'Blast radius for a CVE: who downloaded any artifact flagged with it, and
+
+        how exposed the repositories holding those artifacts are (#2364).'
+      operationId: cve_blast_radius
+      parameters:
+      - name: cve_id
+        in: path
+        description: CVE id (exact match, e.g. CVE-2021-44228)
+        required: true
+        schema:
+          type: string
+      - name: from
+        in: query
+        description: Inclusive lower bound on `downloaded_at` (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: to
+        in: query
+        description: Inclusive upper bound on `downloaded_at` (RFC 3339).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: page
+        in: query
+        description: 1-based page over the downloaders list.
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      - name: per_page
+        in: query
+        description: Downloaders per page (1..=100, default 20).
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+      responses:
+        '200':
+          description: Blast-radius report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BlastRadiusResponse'
+        '400':
+          description: Invalid parameter
+        '403':
+          description: Admin privileges required
+      security:
+      - bearer_auth: []
   /api/v1/admin/settings:
     get:
       tags:
@@ -8117,6 +8561,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: version
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
       responses:
         '200':
           description: Artifact metadata
@@ -8323,6 +8774,13 @@ paths:
         required: true
         schema:
           type: string
+      - name: version
+        in: query
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
       responses:
         '200':
           description: Artifact binary content
@@ -9155,6 +9613,36 @@ paths:
           description: Authentication required
         '404':
           description: Repository not found
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/versions/{path}:
+    get:
+      tags:
+      - repositories
+      summary: List the immutable revision history for a versioned artifact (#2367).
+      operationId: list_artifact_versions
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: path
+        description: Artifact path
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Version history, newest first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtifactVersionListResponse'
+        '404':
+          description: Repository or artifact not found
       security:
       - bearer_auth: []
   /api/v1/sbom:
@@ -12629,6 +13117,27 @@ components:
             $ref: '#/components/schemas/SearchResultItem'
         pagination:
           $ref: '#/components/schemas/PaginationInfo'
+    AffectedRepo:
+      type: object
+      description: One repository containing an affected artifact, with its access exposure.
+      required:
+      - repository_id
+      - repository_key
+      - is_public
+      - access_scope
+      properties:
+        access_scope:
+          type: string
+          description: '`public` | `restricted_acl` | `restricted_roles` — see
+
+            [`classify_access_scope`].'
+        is_public:
+          type: boolean
+        repository_id:
+          type: string
+          format: uuid
+        repository_key:
+          type: string
     AgeGateConfigResponse:
       type: object
       required:
@@ -13195,6 +13704,16 @@ components:
           type: string
         repository_key:
           type: string
+        revision:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          description: 'Server-assigned revision number for repositories with first-class
+
+            versioning enabled (#2367). `None` for non-versioned repositories and
+
+            for coordinates with no recorded history.'
         size_bytes:
           type: integer
           format: int64
@@ -13202,6 +13721,15 @@ components:
           type:
           - string
           - 'null'
+        version_label:
+          type:
+          - string
+          - 'null'
+          description: 'Optional human tag recorded for this revision (from the
+
+            `X-Artifact-Version` upload header). Only populated alongside
+
+            `revision`.'
     ArtifactStatsResponse:
       type: object
       required:
@@ -13224,6 +13752,77 @@ components:
           - string
           - 'null'
           format: date-time
+    ArtifactVersionListResponse:
+      type: object
+      description: Version history for one artifact coordinate, newest first (#2367).
+      required:
+      - repository_key
+      - path
+      - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ArtifactVersionResponse'
+        path:
+          type: string
+        repository_key:
+          type: string
+    ArtifactVersionQuery:
+      type: object
+      description: '`?version=` selector accepted by the artifact metadata/download routes on
+
+        versioning-enabled repositories (#2367). A numeric value selects by
+
+        server-assigned revision, `latest` (or omitting the parameter) selects the
+
+        HEAD, and any other string selects by human `version_label`. Ignored on
+
+        repositories without versioning enabled.'
+      properties:
+        version:
+          type:
+          - string
+          - 'null'
+    ArtifactVersionResponse:
+      type: object
+      description: One immutable stored revision of a versioned artifact (#2367).
+      required:
+      - revision
+      - size_bytes
+      - checksum_sha256
+      - content_type
+      - created_at
+      properties:
+        checksum_sha256:
+          type: string
+        content_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        revision:
+          type: integer
+          format: int32
+          description: Server-assigned auto-increment revision (1-based).
+        size_bytes:
+          type: integer
+          format: int64
+        uploaded_by:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Id of the user that uploaded this revision (#2397). Always serialized
+
+            (`null` when unknown, e.g. anonymous uploads) so the versions UI can
+
+            rely on the key being present.'
+        version_label:
+          type:
+          - string
+          - 'null'
+          description: Optional human tag supplied via `X-Artifact-Version` at upload time.
     AssessmentResult:
       type: object
       required:
@@ -13310,6 +13909,75 @@ components:
         role_id:
           type: string
           format: uuid
+    AuditLogItem:
+      type: object
+      description: A single audit-log row in a query response.
+      required:
+      - id
+      - action
+      - resource_type
+      - correlation_id
+      - created_at
+      properties:
+        action:
+          type: string
+        actor_username:
+          type:
+          - string
+          - 'null'
+          description: 'Username of the acting user, embedded server-side (#2392). `null` for
+
+            system/non-user actors and for actors that have since been deleted.'
+        correlation_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        details: {}
+        id:
+          type: string
+          format: uuid
+        ip_address:
+          type:
+          - string
+          - 'null'
+        resource_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        resource_type:
+          type: string
+        user_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+    AuditLogListResponse:
+      type: object
+      description: Paginated audit-log query response.
+      required:
+      - items
+      - total
+      - page
+      - per_page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLogItem'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        per_page:
+          type: integer
+          format: int32
+          minimum: 0
+        total:
+          type: integer
+          format: int64
     AuthConfig:
       type: object
       description: Authentication provider availability.
@@ -13391,6 +14059,135 @@ components:
           - 'null'
         type:
           type: string
+    BlastDownloader:
+      type: object
+      description: One downloader (or the anonymous bucket) of an affected artifact.
+      required:
+      - download_count
+      - distinct_ip_count
+      - first_download
+      - last_download
+      - ip_addresses
+      properties:
+        distinct_ip_count:
+          type: integer
+          format: int64
+        download_count:
+          type: integer
+          format: int64
+        first_download:
+          type: string
+          format: date-time
+        ip_addresses:
+          type: array
+          items:
+            type: string
+          description: Sample of distinct client IPs (bounded; counts stay exact).
+        last_download:
+          type: string
+          format: date-time
+        user_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: '`None` groups all anonymous downloads.'
+        username:
+          type:
+          - string
+          - 'null'
+          description: 'Username when the download was authenticated and the user still
+
+            exists; `None` for the anonymous bucket (or a deleted user).'
+    BlastRadiusResponse:
+      type: object
+      description: Full blast-radius report for a CVE or artifact.
+      required:
+      - target
+      - summary
+      - affected_repos
+      - downloaders
+      - total_downloaders
+      - page
+      - per_page
+      properties:
+        affected_repos:
+          type: array
+          items:
+            $ref: '#/components/schemas/AffectedRepo'
+          description: 'Every repository containing an affected artifact (downloaded or not),
+
+            bounded to [`MAX_AFFECTED_REPOS`] entries.'
+        downloaders:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlastDownloader'
+          description: Paginated distinct downloaders, most recent first.
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        per_page:
+          type: integer
+          format: int32
+          minimum: 0
+        summary:
+          $ref: '#/components/schemas/BlastRadiusSummary'
+        target:
+          $ref: '#/components/schemas/BlastRadiusTargetInfo'
+        total_downloaders:
+          type: integer
+          format: int64
+          description: 'Total distinct downloader principals (the anonymous bucket counts as
+
+            one) — the pagination total for `downloaders`.'
+    BlastRadiusSummary:
+      type: object
+      description: Aggregate exposure counts, scoped to the requested download window.
+      required:
+      - affected_artifact_count
+      - affected_repo_count
+      - downloader_user_count
+      - anonymous_download_present
+      - distinct_ip_count
+      - total_download_count
+      properties:
+        affected_artifact_count:
+          type: integer
+          format: int64
+          description: Affected artifacts with at least one download in the window.
+        affected_repo_count:
+          type: integer
+          format: int64
+          description: Repositories holding those downloaded artifacts.
+        anonymous_download_present:
+          type: boolean
+          description: Whether any download in the window was anonymous.
+        distinct_ip_count:
+          type: integer
+          format: int64
+          description: Distinct client IPs across all downloads in the window.
+        downloader_user_count:
+          type: integer
+          format: int64
+          description: Distinct **authenticated** users who downloaded an affected artifact.
+        total_download_count:
+          type: integer
+          format: int64
+          description: Total download events of affected artifacts in the window.
+    BlastRadiusTargetInfo:
+      type: object
+      description: Echo of what the blast radius was computed for.
+      required:
+      - kind
+      - value
+      properties:
+        kind:
+          type: string
+          description: '`cve` or `artifact`.'
+        value:
+          type: string
+          description: The CVE id or artifact id.
     BuildArtifact:
       type: object
       required:
@@ -15131,6 +15928,15 @@ components:
           - string
           - 'null'
           description: Username for basic auth.
+        versioning_enabled:
+          type:
+          - boolean
+          - 'null'
+          description: 'Opt this repository into first-class artifact versioning (#2367):
+
+            uploads to Generic/Mlmodel repos append immutable revisions instead
+
+            of overwriting. Defaults to false (current behavior preserved).'
     CreateRuleRequest:
       type: object
       required:
@@ -16158,6 +16964,63 @@ components:
           description: 'Total size in bytes of the manifest plus all referenced layer blobs.
 
             For image indexes, this sums across child manifests.'
+    DownloadListResponse:
+      type: object
+      required:
+      - downloads
+      - total
+      - page
+      - per_page
+      properties:
+        downloads:
+          type: array
+          items:
+            $ref: '#/components/schemas/DownloadRecord'
+        page:
+          type: integer
+          format: int32
+          minimum: 0
+        per_page:
+          type: integer
+          format: int32
+          minimum: 0
+        total:
+          type: integer
+          format: int64
+    DownloadRecord:
+      type: object
+      description: One attributed download event.
+      required:
+      - artifact_id
+      - downloaded_at
+      properties:
+        artifact_id:
+          type: string
+          format: uuid
+        downloaded_at:
+          type: string
+          format: date-time
+        ip_address:
+          type:
+          - string
+          - 'null'
+          description: Resolved client IP; NULL for legacy rows and unresolvable clients.
+        user_agent:
+          type:
+          - string
+          - 'null'
+        user_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+        username:
+          type:
+          - string
+          - 'null'
+          description: 'Username of the downloader, when the download was authenticated and
+
+            the user still exists.'
     DownloadTrend:
       type: object
       description: Download trend data point.
@@ -17843,6 +18706,49 @@ components:
           type:
           - string
           - 'null'
+    ListDownloadsQuery:
+      type: object
+      description: Query parameters for the download-telemetry listing (#2365).
+      properties:
+        artifact_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Filter to downloads of one artifact.
+        from:
+          type:
+          - string
+          - 'null'
+          description: Inclusive lower bound on `downloaded_at` (RFC 3339).
+        ip:
+          type:
+          - string
+          - 'null'
+          description: Filter to downloads from one client IP (exact match).
+        page:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        per_page:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          minimum: 0
+        to:
+          type:
+          - string
+          - 'null'
+          description: Inclusive upper bound on `downloaded_at` (RFC 3339).
+        user_id:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: Filter to downloads by one user.
     ListFormatsQuery:
       type: object
       properties:
@@ -20127,6 +21033,7 @@ components:
       - is_public
       - allow_anonymous_access
       - promotion_only
+      - versioning_enabled
       - storage_used_bytes
       - upstream_auth_configured
       - created_at
@@ -20200,6 +21107,11 @@ components:
           type:
           - string
           - 'null'
+        versioning_enabled:
+          type: boolean
+          description: 'When true, uploads to this Generic/Mlmodel repository append immutable
+
+            revisions instead of overwriting the prior content (#2367).'
     RepositorySigningConfig:
       type: object
       description: Repository signing configuration.
@@ -22863,6 +23775,13 @@ components:
             Pass an empty string to remove the link.
 
             Stored in `repository_config` under `release_repository_id`.'
+        versioning_enabled:
+          type:
+          - boolean
+          - 'null'
+          description: 'When provided, enables/disables first-class artifact versioning for
+
+            this Generic/Mlmodel repository (#2367). When omitted, unchanged.'
     UpdateRuleRequest:
       type: object
       properties:
