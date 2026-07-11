@@ -1314,62 +1314,42 @@ paths:
           type: string
       - name: artifact_id
         in: query
-        description: Filter to downloads of one artifact.
+        description: Filter to downloads of one artifact
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
       - name: user_id
         in: query
-        description: Filter to downloads by one user.
+        description: Filter to downloads by one user
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
-      - name: ip
-        in: query
-        description: Filter to downloads from one client IP (exact match).
-        required: false
-        schema:
-          type:
-          - string
-          - 'null'
       - name: from
         in: query
-        description: Inclusive lower bound on `downloaded_at` (RFC 3339).
+        description: Inclusive lower bound on downloaded_at (RFC 3339)
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
       - name: to
         in: query
-        description: Inclusive upper bound on `downloaded_at` (RFC 3339).
+        description: Inclusive upper bound on downloaded_at (RFC 3339)
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
       - name: page
         in: query
         required: false
         schema:
-          type:
-          - integer
-          - 'null'
+          type: integer
           format: int32
           minimum: 0
       - name: per_page
         in: query
         required: false
         schema:
-          type:
-          - integer
-          - 'null'
+          type: integer
           format: int32
           minimum: 0
       responses:
@@ -1401,62 +1381,41 @@ paths:
           format: uuid
       - name: artifact_id
         in: query
-        description: Filter to downloads of one artifact.
+        description: Filter to downloads of one artifact
         required: false
         schema:
-          type:
-          - string
-          - 'null'
-          format: uuid
-      - name: user_id
-        in: query
-        description: Filter to downloads by one user.
-        required: false
-        schema:
-          type:
-          - string
-          - 'null'
+          type: string
           format: uuid
       - name: ip
         in: query
-        description: Filter to downloads from one client IP (exact match).
+        description: Filter to downloads from one client IP (exact match)
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
       - name: from
         in: query
-        description: Inclusive lower bound on `downloaded_at` (RFC 3339).
+        description: Inclusive lower bound on downloaded_at (RFC 3339)
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
       - name: to
         in: query
-        description: Inclusive upper bound on `downloaded_at` (RFC 3339).
+        description: Inclusive upper bound on downloaded_at (RFC 3339)
         required: false
         schema:
-          type:
-          - string
-          - 'null'
+          type: string
       - name: page
         in: query
         required: false
         schema:
-          type:
-          - integer
-          - 'null'
+          type: integer
           format: int32
           minimum: 0
       - name: per_page
         in: query
         required: false
         schema:
-          type:
-          - integer
-          - 'null'
+          type: integer
           format: int32
           minimum: 0
       responses:
