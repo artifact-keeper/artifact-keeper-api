@@ -25,7 +25,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.5.0
+  version: 1.5.1
 servers:
 - url: /
   description: Current server
@@ -393,6 +393,16 @@ paths:
           - string
           - 'null'
           format: uuid
+      - name: correlation_id
+        in: query
+        description: 'Filter by exact correlation ID (#2414) — the request''s
+
+          `X-Correlation-ID` / trace ID as stored on each audit event.'
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
       - name: from
         in: query
         description: Inclusive lower time bound (RFC 3339).
@@ -9122,6 +9132,75 @@ paths:
           description: Repository or member not found
       security:
       - bearer_auth: []
+  /api/v1/repositories/{key}/npm-scope-policy:
+    get:
+      tags:
+      - repositories
+      summary: Get the npm scope policy for a repository (#2327).
+      description: 'Same administrative tier as the write path: the policy is an
+
+        administrative supply-chain control, so reads require `repository:admin`
+
+        (or global admin) as well.'
+      operationId: get_npm_scope_policy
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Current npm scope policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NpmScopePolicyResponse'
+        '401':
+          description: Authentication required
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - repositories
+      summary: Set the npm scope policy for a Remote repository (#2327).
+      description: 'Mirrors the auth + repo-access pattern of `set_cache_ttl`: candidate
+
+        selection for virtual npm resolution is a supply-chain control on the same
+
+        administrative tier, so non-admins need `repository:admin` on the target.'
+      operationId: set_npm_scope_policy
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetNpmScopePolicyRequest'
+        required: true
+      responses:
+        '200':
+          description: npm scope policy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NpmScopePolicyResponse'
+        '400':
+          description: Validation error (e.g. non-remote repo or invalid scope)
+        '401':
+          description: Authentication required
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
   /api/v1/repositories/{key}/pypi-tracks:
     get:
       tags:
@@ -13930,7 +14009,9 @@ components:
             system/non-user actors and for actors that have since been deleted.'
         correlation_id:
           type: string
-          format: uuid
+          description: 'Request correlation ID (#2414): a string — caller-supplied values and
+
+            W3C trace IDs are not UUIDs.'
         created_at:
           type: string
           format: date-time
@@ -19361,6 +19442,27 @@ components:
           type:
           - string
           - 'null'
+    NpmScopePolicyResponse:
+      type: object
+      required:
+      - repository_key
+      - allowed_scopes
+      - allow_unscoped
+      - active
+      properties:
+        active:
+          type: boolean
+          description: 'Whether the stored policy actually restricts anything. `false` means
+
+            virtual resolution treats this repository as unrestricted.'
+        allow_unscoped:
+          type: boolean
+        allowed_scopes:
+          type: array
+          items:
+            type: string
+        repository_key:
+          type: string
     OciBlobFootprintReport:
       type: object
       description: 'Read-only OCI blob storage footprint report (issue #1408).
@@ -22107,6 +22209,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/LabelEntrySchema'
+    SetNpmScopePolicyRequest:
+      type: object
+      required:
+      - allowed_scopes
+      properties:
+        allow_unscoped:
+          type: boolean
+          description: 'Whether unscoped package names may be resolved through this
+
+            repository. Defaults to `false` when an allow-list is submitted.'
+        allowed_scopes:
+          type: array
+          items:
+            type: string
+          description: 'npm scopes (each starting with `@`) that may be resolved through this
+
+            repository. An empty list places no scope restriction.'
     SetPeerLabelsRequest:
       type: object
       required:
@@ -22784,6 +22903,13 @@ components:
         edge_stale_threshold_minutes:
           type: integer
           format: int32
+        environment:
+          type: string
+          description: 'Read-only deployment environment name, sourced from the `ENVIRONMENT`
+
+            config value. Defaulted on deserialization so it is not required in the
+
+            update-settings request body.'
         max_upload_size_bytes:
           type: integer
           format: int64
