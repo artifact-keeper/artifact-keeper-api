@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.5.2"
+    "version": "1.5.3"
   },
   "servers": [
     {
@@ -2725,6 +2725,104 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/quality-checks": {
+      "get": {
+        "tags": [
+          "quality"
+        ],
+        "summary": "Admin list-all quality check results (#2419).",
+        "description": "Returns quality check results across all repositories/artifacts, newest\nfirst, filterable by `repository_id`, `artifact_id` and `status`, with\n`page`/`per_page` pagination and a total count. This powers the web admin\nquality-checks page, which needs a repository-scoped (or unscoped) view; the\nartifact-scoped `GET /quality/checks` (which 400s without `artifact_id`)\nremains the #2334 contract and is unchanged. Admin-only via the `/admin`\n`admin_middleware` and a defense-in-depth check here.",
+        "operationId": "admin_list_checks",
+        "parameters": [
+          {
+            "name": "repository_id",
+            "in": "query",
+            "description": "Filter by repository id.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "artifact_id",
+            "in": "query",
+            "description": "Filter by artifact id.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Filter by check status (e.g. `completed`, `running`, `failed`).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "1-based page index (default 1).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Page size (default 50, max 200).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated quality check results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QualityCheckListResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required"
           }
         },
         "security": [
@@ -16047,6 +16145,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CveHistoryEntry"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -31140,6 +31248,38 @@
             "items": {
               "$ref": "#/components/schemas/PypiTrackResponse"
             }
+          }
+        }
+      },
+      "QualityCheckListResponse": {
+        "type": "object",
+        "description": "Paginated admin quality-check list response (#2419).",
+        "required": [
+          "items",
+          "total",
+          "page",
+          "per_page"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CheckResponse"
+            }
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
           }
         }
       },
