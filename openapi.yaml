@@ -11914,7 +11914,8 @@ paths:
                 $ref: '#/components/schemas/SetupStatusResponse'
   /api/v1/signing/artifacts/{artifact_id}/sign:
     post:
-      tags: []
+      tags:
+      - signing
       summary: '`POST /api/v1/signing/artifacts/{artifact_id}/sign` — produce an authorized
 
         signature over the artifact''s content with the repository''s active signing

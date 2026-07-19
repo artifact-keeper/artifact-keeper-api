@@ -18948,7 +18948,9 @@
     },
     "/api/v1/signing/artifacts/{artifact_id}/sign": {
       "post": {
-        "tags": [],
+        "tags": [
+          "signing"
+        ],
         "summary": "`POST /api/v1/signing/artifacts/{artifact_id}/sign` — produce an authorized\nsignature over the artifact's content with the repository's active signing\nkey and record the attestation the promotion `require_signature` gate reads\n(#2535).",
         "description": "This is the ONLY writer of the per-artifact `used_for_signing` marker, and\nit is admin-gated: an artifact can satisfy `require_signature` only through a\ndeliberate, authenticated signing action over its bytes — never as a side\neffect of an (anonymous) repository-metadata read. Format-agnostic: signs\ncontent bytes, so it works for every hosted format, not just the\nmetadata-signing ones. Proxy-cached remote artifacts (no `artifacts` row)\ncannot be signed and therefore stay fail-closed under `require_signature`.",
         "operationId": "sign_artifact",
