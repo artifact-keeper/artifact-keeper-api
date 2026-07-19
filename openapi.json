@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.5.8"
+    "version": "1.6.0"
   },
   "servers": [
     {
@@ -2932,6 +2932,91 @@
         }
       }
     },
+    "/api/v1/admin/security/artifact/{artifact_id}/accessible-users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Accessible-but-not-downloaded users for one artifact (#2386). The repository\nis implied by the artifact.",
+        "operationId": "artifact_accessible_users",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "description": "Repository to scope the enumeration to. **Required** for the CVE route\n(a CVE spans many repos); ignored for the artifact route (implied by the\nartifact).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "1-based page over the accessible-users list.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Users per page (1..=100, default 20).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accessible-not-downloaded report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessibleUsersResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Artifact not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/security/artifact/{artifact_id}/blast-radius": {
       "get": {
         "tags": [
@@ -3019,6 +3104,93 @@
           },
           "403": {
             "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/security/cve/{cve_id}/accessible-users": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Accessible-but-not-downloaded users for a CVE, scoped to one restricted\nrepository (#2386). `repository_id` is required and must be a repo the CVE\nactually affects.",
+        "operationId": "cve_accessible_users",
+        "parameters": [
+          {
+            "name": "cve_id",
+            "in": "path",
+            "description": "CVE id (exact match, e.g. CVE-2021-44228)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "description": "Repository to scope the enumeration to. **Required** for the CVE route\n(a CVE spans many repos); ignored for the artifact route (implied by the\nartifact).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "1-based page over the accessible-users list.",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "Users per page (1..=100, default 20).",
+            "required": false,
+            "schema": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Accessible-not-downloaded report",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessibleUsersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid parameter"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "CVE does not affect the repository"
           }
         },
         "security": [
@@ -6834,6 +7006,134 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/curation/repos/{repo_key}/packages/search": {
+      "get": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "search_curation_packages",
+        "parameters": [
+          {
+            "name": "repo_key",
+            "in": "path",
+            "description": "Staging repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Case-insensitive substring match on the package name.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "arch",
+            "in": "query",
+            "description": "Exact architecture filter (e.g. `x86_64`, `noarch`).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Curation status filter (e.g. `approved`, `pending`, `blocked`, `review`).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CurationPackageResponse"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found or not visible"
+          }
+        }
+      }
+    },
+    "/api/v1/curation/repos/{repo_key}/sync": {
+      "post": {
+        "tags": [
+          "Curation"
+        ],
+        "operationId": "trigger_curation_sync",
+        "parameters": [
+          {
+            "name": "repo_key",
+            "in": "path",
+            "description": "Staging repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncTriggerResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not authorized to trigger a sync for this repo"
+          },
+          "404": {
+            "description": "Repository not found"
           }
         }
       }
@@ -11661,10 +11961,18 @@
               }
             }
           },
+          "403": {
+            "description": "Admin privileges required"
+          },
           "404": {
             "description": "Plugin not found"
           }
-        }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
       },
       "post": {
         "tags": [
@@ -11704,6 +12012,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Admin privileges required"
           },
           "404": {
             "description": "Plugin not found"
@@ -11859,6 +12170,372 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/projects": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List projects",
+        "operationId": "projects_list",
+        "responses": {
+          "200": {
+            "description": "List of projects",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Create a project",
+        "operationId": "projects_create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Project created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "409": {
+            "description": "Project key already exists"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/projects/{id}": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Get a project by ID",
+        "operationId": "projects_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Update a project (COALESCE semantics: omitted fields are unchanged)",
+        "operationId": "projects_update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProjectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Project updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Project"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Delete a project",
+        "description": "Removes the project's membership grants and the project row in one\ntransaction. Repositories assigned to the project are automatically\nunassigned (`project_id` -> NULL) by the FK's ON DELETE SET NULL.",
+        "operationId": "projects_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project deleted"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/projects/{id}/members": {
+      "get": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "List project members (grants on the project)",
+        "operationId": "projects_list_members",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Project membership grants",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectMemberListResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Add or update a project membership grant",
+        "operationId": "projects_add_member",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddProjectMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Membership grant upserted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProjectMemberRow"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Project not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "projects"
+        ],
+        "summary": "Remove a project membership grant",
+        "operationId": "projects_remove_member",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Project ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RemoveProjectMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Membership grant removed"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Grant not found"
           }
         },
         "security": [
@@ -13119,6 +13796,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Admin privileges required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -13495,6 +14182,19 @@
                 "string",
                 "null"
               ]
+            }
+          },
+          {
+            "name": "project",
+            "in": "query",
+            "description": "Filter the listing to repositories assigned to this project (#2472).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "format": "uuid"
             }
           }
         ],
@@ -15328,6 +16028,47 @@
                 }
               }
             }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/storage": {
+      "get": {
+        "tags": [
+          "repositories"
+        ],
+        "summary": "Get deduplicated storage accounting for a repository (#2056).",
+        "description": "Returns the true physical footprint (with dedup savings) from the\nmaterialized stats cache. Same visibility rules as `get_repository`:\npublic repos and repo members pass; everyone else gets an existence-hiding\n404.\n\nThe whole-instance aggregate `instance_unique_bytes` is admin-only and is\nomitted for non-admin/anonymous callers; they receive only this\nrepository's own figures.\n\nOn cloud (instance-scope) backends the dedup breakdown (`physical_bytes`,\n`unique_bytes`, `shared_bytes`, `dedup_ratio`) is cross-tenant-derivable and\nis likewise restricted to admins (#2560); non-admins/anon see only their\nrepository's `logical_bytes`, `blob_count`, `dedup_scope` and `computed_at`.",
+        "operationId": "get_repository_storage",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Deduplicated storage stats",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepositoryStorageStatsResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found"
           }
         },
         "security": [
@@ -18205,6 +18946,73 @@
         }
       }
     },
+    "/api/v1/signing/artifacts/{artifact_id}/sign": {
+      "post": {
+        "tags": [],
+        "summary": "`POST /api/v1/signing/artifacts/{artifact_id}/sign` — produce an authorized\nsignature over the artifact's content with the repository's active signing\nkey and record the attestation the promotion `require_signature` gate reads\n(#2535).",
+        "description": "This is the ONLY writer of the per-artifact `used_for_signing` marker, and\nit is admin-gated: an artifact can satisfy `require_signature` only through a\ndeliberate, authenticated signing action over its bytes — never as a side\neffect of an (anonymous) repository-metadata read. Format-agnostic: signs\ncontent bytes, so it works for every hosted format, not just the\nmetadata-signing ones. Proxy-cached remote artifacts (no `artifacts` row)\ncannot be signed and therefore stay fail-closed under `require_signature`.",
+        "operationId": "sign_artifact",
+        "parameters": [
+          {
+            "name": "artifact_id",
+            "in": "path",
+            "description": "Artifact ID",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Artifact signed; attestation recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignArtifactResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privilege required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact not found or not eligible for signing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Repository has no active signing key/config",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/signing/keys": {
       "get": {
         "tags": [
@@ -20958,6 +21766,82 @@
   },
   "components": {
     "schemas": {
+      "AccessibleUser": {
+        "type": "object",
+        "description": "One principal that can read an affected artifact but has not downloaded it.",
+        "required": [
+          "user_id",
+          "username",
+          "reason",
+          "via"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "description": "Always `has-access` for this endpoint (accessible minus downloaded)."
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string"
+          },
+          "via": {
+            "type": "string",
+            "description": "How access is granted: `admin` (global), `permission` (fine-grained\ndirect **or** group grant, repo or owning project), or `role`\n(role_assignment only). Direct and group grants both surface as\n`permission` because they share one read fragment."
+          }
+        }
+      },
+      "AccessibleUsersResponse": {
+        "type": "object",
+        "description": "Full accessible-but-not-downloaded report for a CVE or artifact, scoped to\none restricted repository.",
+        "required": [
+          "target",
+          "repository",
+          "exposure",
+          "accessible_not_downloaded",
+          "page",
+          "per_page"
+        ],
+        "properties": {
+          "accessible_not_downloaded": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AccessibleUser"
+            },
+            "description": "The page of accessible-but-not-downloaded principals. Empty when\n`exposure != \"enumerable\"`."
+          },
+          "exposure": {
+            "type": "string",
+            "description": "`enumerable` | `everyone` | `effectively-everyone`."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "repository": {
+            "$ref": "#/components/schemas/RepoExposure"
+          },
+          "target": {
+            "$ref": "#/components/schemas/BlastRadiusTargetInfo"
+          },
+          "total": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Total accessible-not-downloaded principals (the pagination total).\n`null` for `public` repos (never enumerated)."
+          }
+        }
+      },
       "AcknowledgeRequest": {
         "type": "object",
         "required": [
@@ -21018,6 +21902,31 @@
         "properties": {
           "value": {
             "type": "string"
+          }
+        }
+      },
+      "AddProjectMemberRequest": {
+        "type": "object",
+        "required": [
+          "principal_type",
+          "principal_id",
+          "actions"
+        ],
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Actions granted on every repository in the project (e.g. [\"read\"],\n[\"read\", \"write\"])."
+          },
+          "principal_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "principal_type": {
+            "type": "string",
+            "description": "\"user\" or \"group\"."
           }
         }
       },
@@ -24709,6 +25618,35 @@
           }
         }
       },
+      "CreateProjectRequest": {
+        "type": "object",
+        "required": [
+          "key",
+          "name"
+        ],
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "quota_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "P1: stored only, NOT enforced (quota enforcement is P3)."
+          }
+        }
+      },
       "CreateRepoTokenRequest": {
         "type": "object",
         "description": "Request to create an access token scoped to a repository.",
@@ -24787,6 +25725,52 @@
             ],
             "description": "Alias for `is_public`. When set to true, anonymous users can download\nartifacts from this repository without authentication. Useful for remote\n(pull-through cache) repositories that proxy public upstream registries.\nIf both `is_public` and `allow_anonymous_access` are provided,\n`allow_anonymous_access` takes precedence."
           },
+          "apt_description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Description field for Debian/APT Release files.\nStored in `repository_config` under `apt_description`."
+          },
+          "apt_label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Label field for Debian/APT Release files.\nStored in `repository_config` under `apt_label`."
+          },
+          "apt_origin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Origin field for Debian/APT Release files.\nStored in `repository_config` under `apt_origin`."
+          },
+          "apt_release_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Version field for Debian/APT Release files.\nStored in `repository_config` under `apt_release_version`."
+          },
+          "custom_user_agent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom User-Agent sent on outbound HTTP requests to the upstream for\nthis repository. Only valid for remote repositories. Max 256 characters."
+          },
+          "debian": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DebianRepositoryConfig",
+                "description": "Debian remote (proxy) distribution/component/architecture filter\n(#2460, epic #2458). Only valid for Debian *Remote* repositories.\nPassthrough-only: allowed paths are proxied byte-for-byte; denied\npaths are refused. Stored as JSON under `debian_config`. Omit or set\nempty allowlists to proxy the whole upstream (default behaviour)."
+              }
+            ]
+          },
           "description": {
             "type": [
               "string",
@@ -24832,6 +25816,41 @@
           "name": {
             "type": "string"
           },
+          "npm_allow_unscoped": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether unscoped npm package names may resolve through this npm Remote\nrepository (#2424). Stored under `npm_allow_unscoped`."
+          },
+          "npm_allowed_name_patterns": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed npm full-name glob patterns (`*`/`?`) for this npm Remote\nrepository (#2424). Additive to `npm_allowed_scopes`; stored under\n`npm_allowed_name_patterns`. A name is allowed if its scope is allowed\nOR any glob matches (e.g. `@acme/*`, `internal-*`)."
+          },
+          "npm_allowed_scopes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed npm `@scope` literals for this npm Remote repository (#2424).\nOnly meaningful for npm-format Remote repositories; validated and stored\nin `repository_config` under `npm_allowed_scopes`. Omit to leave the\nrepository unrestricted by scope."
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Optional project to assign this repository to (#2472). Grants on the\nproject (permissions with `target_type = 'project'`) are inherited by\nthe repository. Omit to leave the repository unassigned."
+          },
           "promotion_only": {
             "type": [
               "boolean",
@@ -24862,6 +25881,13 @@
               "null"
             ],
             "description": "Override the default storage backend for this repository.\nWhen omitted, the server's configured default is used.\nNon-admin users may only use the default backend."
+          },
+          "trusted_gpg_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ASCII-armored OpenPGP *public* key trusted to sign this RPM curation\nremote's `repodata/repomd.xml` (#2568, RPM curation Phase 3). When set,\nthe curation sync fetches `repomd.xml.asc` and verifies the detached\nsignature before ingesting upstream metadata (#2567 reads this column).\nMust be a PUBLIC key block; a private-key block is rejected. Write-only:\nthe response exposes only the boolean `has_trusted_gpg_key`, never the\nkey material."
           },
           "upstream_auth_type": {
             "type": [
@@ -24997,6 +26023,13 @@
               "boolean",
               "null"
             ]
+          },
+          "map_groups_to_groups": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Opt-in flag (see migration 157, #2333): when true, SAML assertion\ngroup values are reflected as Artifact Keeper group memberships.\nDefaults to false."
           },
           "name": {
             "type": "string"
@@ -26038,6 +27071,171 @@
             "type": "integer",
             "format": "int32",
             "minimum": 0
+          }
+        }
+      },
+      "DebianConfigPatch": {
+        "type": "object",
+        "description": "Partial-update patch for [`DebianRepositoryConfig`]. Fields left absent are\npreserved; provided fields (including an explicit empty list) replace the\nstored value. Applied on top of the currently stored config, or on top of\nthe default when none exists yet.",
+        "properties": {
+          "architectures": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "components": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "distribution_paths": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "flat_repository": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "include_source_packages": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "metadata_strategy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DebianMetadataStrategy"
+              }
+            ]
+          },
+          "package_fetch_strategy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DebianPackageFetchStrategy"
+              }
+            ]
+          },
+          "package_queries": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            }
+          },
+          "upstream_gpg_key_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "verify_upstream_metadata": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "DebianMetadataStrategy": {
+        "type": "string",
+        "description": "How metadata (`Packages`/`Release`) is produced for a Debian remote.\n\nOnly [`DebianMetadataStrategy::UpstreamPassthrough`] is implemented in\n1.6.0; the other variants are reserved for P3 (filtered generation) / P4\n(local re-signing) and are rejected with 422 until then. The enum lands now\nso those phases can flip it on without a schema/config-shape change.",
+        "enum": [
+          "upstream_passthrough",
+          "filter_and_generate",
+          "filter_generate_and_sign",
+          "hosted_generate"
+        ]
+      },
+      "DebianPackageFetchStrategy": {
+        "type": "string",
+        "description": "How package bodies are fetched for a Debian remote.\n\nOnly [`DebianPackageFetchStrategy::UpstreamPassthrough`] is implemented in\n1.6.0.",
+        "enum": [
+          "upstream_passthrough",
+          "eager"
+        ]
+      },
+      "DebianRepositoryConfig": {
+        "type": "object",
+        "description": "P2 Debian remote proxy filter config (dist/component/arch allowlists).\n\nSemantics for each allowlist: an empty list OR a list containing `\"*\"`\nselects everything (today's full-proxy behaviour); otherwise only exact\nmatches are selected. Architecture-independent (`all`) packages are always\npermitted regardless of the `architectures` allowlist.",
+        "properties": {
+          "architectures": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Architectures (e.g. `amd64`, `arm64`) to proxy. Empty/`[\"*\"]` = all.\n`all` (arch-independent) is always permitted."
+          },
+          "components": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Components (e.g. `main`, `contrib`, `non-free`) to proxy. Empty/`[\"*\"]` = all."
+          },
+          "distribution_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Distributions (a.k.a. suites/codenames, e.g. `bookworm`) to proxy.\nEmpty or `[\"*\"]` = all."
+          },
+          "flat_repository": {
+            "type": "boolean",
+            "description": "Flat (non-`dists/`) repository layout flag. Accepted but does NOT weaken\nP1's flat/redirect abuse posture in passthrough."
+          },
+          "include_source_packages": {
+            "type": "boolean",
+            "description": "Whether source packages (`Sources`, `.dsc`) are included. Advisory in\npassthrough (upstream metadata is unchanged); honored under P3."
+          },
+          "metadata_strategy": {
+            "$ref": "#/components/schemas/DebianMetadataStrategy",
+            "description": "Metadata production strategy. Only `upstream_passthrough` in 1.6.0."
+          },
+          "package_fetch_strategy": {
+            "$ref": "#/components/schemas/DebianPackageFetchStrategy",
+            "description": "Package-body fetch strategy. Only `upstream_passthrough` in 1.6.0."
+          },
+          "package_queries": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Package-name-level queries. NOT honored in passthrough (that needs P3);\na non-empty value here with `upstream_passthrough` is rejected with 422\nrather than silently advertising content the proxy would then block."
+          },
+          "upstream_gpg_key_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Upstream GPG key id used to verify upstream metadata (reserved for P4)."
+          },
+          "verify_upstream_metadata": {
+            "type": "boolean",
+            "description": "Whether to verify the upstream signed `Release` before serving. In P2 the\nP1 integrity gate already enforces index/Release consistency; this flag\nis reserved for P4 trust-anchor verification."
           }
         }
       },
@@ -28801,6 +29999,14 @@
             "format": "int32",
             "minimum": 0
           },
+          "project": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Filter the listing to repositories assigned to this project (#2472)."
+          },
           "q": {
             "type": [
               "string",
@@ -29604,7 +30810,7 @@
       },
       "OciBlobFootprintReport": {
         "type": "object",
-        "description": "Read-only OCI blob storage footprint report (issue #1408).\n\nThis is a **reporting-only** view. It performs no deletion and takes no\nlocks. It surfaces how much storage the tracked `oci_blobs` rows\naccount for so operators can see the magnitude of un-reclaimed blob\nlayers before any garbage-collection mechanism is enabled.\n\nIt deliberately does NOT attempt to classify which blobs are\n\"reclaimable orphans\": that requires a manifest -> blob reference table\nthat does not yet exist in the schema, and any per-`(repository_id,\ndigest)` orphan heuristic would mis-handle the cross-repo dedup case\n(multiple `oci_blobs` rows, one physical object) and report in-use\nblobs as reclaimable. The numbers here are exact aggregates only.",
+        "description": "Read-only OCI blob storage footprint report (issue #1408).\n\nThis is a **reporting-only** view. It performs no deletion and takes no\nlocks. It surfaces how much storage the tracked `oci_blobs` rows\naccount for so operators can see the magnitude of un-reclaimed blob\nlayers before any garbage-collection mechanism is enabled.\n\nIt deliberately does NOT attempt to classify which blobs are\n\"reclaimable orphans\": that is the blob GC's job (mark-and-sweep over\n`manifest_blob_refs`, per [`BLOB_PROTECTED_BY_REFS_SQL`]). A naive\nper-`(repository_id, digest)` orphan heuristic would mis-handle shared\nbackends (anything other than `filesystem`), where all referencing\nrepos share ONE physical object per digest per backend, and report\nin-use blobs as reclaimable; on `filesystem` each repository keeps an\nindependent copy under its own `storage_path`. The numbers here are\nexact aggregates only.",
         "required": [
           "total_blob_rows",
           "distinct_digests",
@@ -29619,17 +30825,17 @@
           "aged_distinct_digests": {
             "type": "integer",
             "format": "int64",
-            "description": "Distinct digests older than `grace_hours` (eligible to be *considered*\nby a future GC sweep once a reference table exists). Reporting only."
+            "description": "Distinct digests with at least one physical copy older than\n`grace_hours` (eligible to be *considered* by a future GC sweep once\na reference table exists). Reporting only."
           },
           "aged_physical_bytes": {
             "type": "integer",
             "format": "int64",
-            "description": "Physical bytes (distinct-digest) older than `grace_hours`."
+            "description": "Physical bytes (same physical-object grouping as `physical_bytes`)\nolder than `grace_hours`."
           },
           "distinct_digests": {
             "type": "integer",
             "format": "int64",
-            "description": "Number of distinct blob digests (content-addressed identities). When\nthis is smaller than `total_blob_rows`, the difference is cross-repo\ndeduplication: rows that share one physical storage object."
+            "description": "Number of distinct blob digests (content-addressed identities). When\nthis is smaller than `total_blob_rows`, the difference is cross-repo\nsharing of a content identity (one physical object shared by all\nreferencing repos on shared backends; an independent copy per\nrepository on `filesystem`)."
           },
           "grace_hours": {
             "type": "integer",
@@ -29651,7 +30857,7 @@
           "physical_bytes": {
             "type": "integer",
             "format": "int64",
-            "description": "Sum of `size_bytes` counting each distinct digest exactly once. This\napproximates the physical bytes occupied in the storage backend."
+            "description": "Sum of `size_bytes` counting each distinct **physical storage\nobject** exactly once, per the ownership model of\n[`BLOB_PROTECTED_BY_REFS_SQL`]: on shared backends (anything other\nthan `filesystem`) a digest is one object per backend; on\n`filesystem` each repository stores its own copy under its\n`storage_path`, so the same digest in two filesystem repositories\ncounts twice."
           },
           "total_blob_rows": {
             "type": "integer",
@@ -29677,7 +30883,7 @@
           "logical_bytes": {
             "type": "integer",
             "format": "int64",
-            "description": "Sum of `oci_blobs.size_bytes` for this repository's rows. Because OCI\nblob storage is content-addressed and deduplicated across repos, the\nsame physical bytes can be counted under more than one repository\nhere; see [`OciBlobFootprintReport::physical_bytes`] for the\ndedup-aware total."
+            "description": "Sum of `oci_blobs.size_bytes` for this repository's rows. On shared\nbackends (anything other than `filesystem`) blobs are deduplicated\nacross repos — one physical object per digest per backend — so the\nsame physical bytes can be counted under more than one repository\nhere. On `filesystem` each repository stores its own independent\ncopy under its `storage_path`, so its rows are that repo's real\nbytes. See [`OciBlobFootprintReport::physical_bytes`] for the\ndedup-aware total."
           },
           "repository_id": {
             "type": "string",
@@ -29913,6 +31119,40 @@
           },
           "version": {
             "type": "string"
+          }
+        }
+      },
+      "PackageSearchQuery": {
+        "type": "object",
+        "properties": {
+          "arch": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Exact architecture filter (e.g. `x86_64`, `noarch`)."
+          },
+          "limit": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "q": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Case-insensitive substring match on the package name."
+          },
+          "status": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Curation status filter (e.g. `approved`, `pending`, `blocked`, `review`)."
           }
         }
       },
@@ -30918,6 +32158,104 @@
           }
         }
       },
+      "Project": {
+        "type": "object",
+        "description": "Project entity.",
+        "required": [
+          "id",
+          "key",
+          "name",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key": {
+            "type": "string",
+            "description": "Unique, URL-safe project key (e.g. \"payments\")."
+          },
+          "name": {
+            "type": "string"
+          },
+          "quota_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Storage quota in bytes. P1: stored only, NOT enforced (quotas = P3)."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ProjectListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Project"
+            }
+          }
+        }
+      },
+      "ProjectMemberListResponse": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProjectMemberRow"
+            }
+          }
+        }
+      },
+      "ProjectMemberRow": {
+        "type": "object",
+        "description": "One membership grant on a project: a `permissions` row with\n`target_type = 'project'`.",
+        "required": [
+          "principal_type",
+          "principal_id",
+          "actions"
+        ],
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "principal_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "principal_type": {
+            "type": "string"
+          }
+        }
+      },
       "PromoteArtifactRequest": {
         "type": "object",
         "properties": {
@@ -31575,6 +32913,44 @@
           }
         }
       },
+      "RemoveProjectMemberRequest": {
+        "type": "object",
+        "required": [
+          "principal_type",
+          "principal_id"
+        ],
+        "properties": {
+          "principal_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "principal_type": {
+            "type": "string"
+          }
+        }
+      },
+      "RepoExposure": {
+        "type": "object",
+        "description": "Repository exposure descriptor echoed in the response.",
+        "required": [
+          "repository_id",
+          "repository_key",
+          "access_scope"
+        ],
+        "properties": {
+          "access_scope": {
+            "type": "string",
+            "description": "`public` | `restricted_acl` | `restricted_roles` — see\n[`classify_access_scope`]."
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repository_key": {
+            "type": "string"
+          }
+        }
+      },
       "RepoHealthResponse": {
         "type": "object",
         "required": [
@@ -31861,6 +33237,7 @@
           "promotion_only",
           "versioning_enabled",
           "storage_used_bytes",
+          "has_trusted_gpg_key",
           "upstream_auth_configured",
           "created_at",
           "updated_at"
@@ -31870,9 +33247,55 @@
             "type": "boolean",
             "description": "Whether anonymous (unauthenticated) downloads are allowed. This is\nalways equal to `is_public` and provided as a convenience alias so\nthe semantics are clear for remote (pull-through cache) repositories."
           },
+          "apt_description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Description field for Debian/APT Release files. Omitted from the\nRelease file when `None` or empty."
+          },
+          "apt_label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Label field for Debian/APT Release files (default: \"artifact-keeper\")."
+          },
+          "apt_origin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Origin field for Debian/APT Release files (default: \"artifact-keeper\")."
+          },
+          "apt_release_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Version field for Debian/APT Release files. Omitted from the\nRelease file when `None` or empty."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "custom_user_agent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom User-Agent used for outbound HTTP requests to the upstream,\nread back from `repository_config`. `None` when unset."
+          },
+          "debian": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DebianRepositoryConfig",
+                "description": "Debian remote proxy filter (#2460), read back from `repository_config`.\nOmitted for non-Debian-remote repositories or when no filter is set."
+              }
+            ]
           },
           "description": {
             "type": [
@@ -31882,6 +33305,10 @@
           },
           "format": {
             "type": "string"
+          },
+          "has_trusted_gpg_key": {
+            "type": "boolean",
+            "description": "Whether a trusted upstream OpenPGP public key is configured for RPM\ncuration signature verification (#2568). The key material itself is\nnever returned; this boolean is the only exposure. `false` for repos\nwith no key set. Populated by the single-repo handlers (create / get /\nupdate) and the listing; `repo_to_response` alone defaults it to `false`\n(it is db-less and cannot read the column)."
           },
           "id": {
             "type": "string",
@@ -31895,6 +33322,41 @@
           },
           "name": {
             "type": "string"
+          },
+          "npm_allow_unscoped": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether unscoped npm names may resolve through this npm Remote\nrepository (#2424). Omitted when unset."
+          },
+          "npm_allowed_name_patterns": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed npm full-name glob patterns (#2424), read back from\n`repository_config`. Omitted for non-npm repositories or when unset."
+          },
+          "npm_allowed_scopes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Allowed npm `@scope` literals (#2424), read back from\n`repository_config`. Omitted for non-npm repositories or when unset."
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Project this repository is assigned to (#2472), if any."
           },
           "promotion_only": {
             "type": "boolean",
@@ -32090,6 +33552,83 @@
           "storage_bytes": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "RepositoryStorageStatsResponse": {
+        "type": "object",
+        "description": "Deduplicated storage-accounting response for a single repository (#2056).\n\nAll figures are read from the materialized `repository_storage_stats` cache\n(refreshed on a schedule + post-GC), so this endpoint is an O(1) primary-key\nlookup and never runs the heavy cross-repo aggregation. `computed_at` is the\nfreshness marker; it is `null` until the first refresh has run.\n\nQuota is unaffected: these numbers are accounting/visibility only and do NOT\nchange how the repository's storage quota is enforced (#2056 §7).",
+        "required": [
+          "repository_key",
+          "logical_bytes",
+          "blob_count",
+          "dedup_scope"
+        ],
+        "properties": {
+          "blob_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Distinct physical objects (dedup keys) this repository references."
+          },
+          "computed_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When these figures were last recomputed. `null` before the first refresh."
+          },
+          "dedup_ratio": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double",
+            "description": "logical_bytes / physical_bytes (1.0 when nothing is stored). Restricted\non cloud backends — see [`physical_bytes`](Self::physical_bytes)."
+          },
+          "dedup_scope": {
+            "type": "string",
+            "description": "`per_repo` (filesystem) or `instance` (cloud) — the backend semantics at\ncompute time."
+          },
+          "instance_unique_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "The instance-wide globally-distinct footprint (true disk usage). On\ncloud backends the sum of per-repo `physical_bytes` OVER-counts shared\nobjects, so this is the authoritative instance total.\n\n**Admin-only:** this is a whole-instance aggregate that spans every\ntenant, so it is only populated for admin callers. It is omitted from the\nresponse entirely for repo-authorized non-admins and anonymous callers,\nwho see only this repository's own figures (#2559 review)."
+          },
+          "logical_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sum over every reference (per-row). Now includes OCI layer bytes, which\nwere previously omitted from all storage accounting."
+          },
+          "physical_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Deduplicated physical footprint within the dedup scope.\n\n**Restricted on cloud (instance-scope) backends:** on a shared-storage\nbackend `physical_bytes`, `unique_bytes`, `shared_bytes` and\n`dedup_ratio` are all cross-tenant-derivable — `shared_bytes =\nphysical_bytes - unique_bytes` reveals whether this repo's blobs are also\nstored by another tenant (a per-blob cross-tenant existence oracle,\n#2560). The whole derivable set is therefore populated only for admins on\ninstance-scope backends, and omitted for repo-authorized non-admins /\nanonymous callers. On `per_repo` (filesystem) backends there is no\ncross-tenant sharing (`shared_bytes == 0` by construction), so all\nfigures are always present."
+          },
+          "repository_key": {
+            "type": "string"
+          },
+          "shared_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "physical_bytes - unique_bytes. Always 0 on filesystem backends (a shared\ndigest in two repos is two files). Restricted on cloud backends — see\n[`physical_bytes`](Self::physical_bytes)."
+          },
+          "unique_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Physical bytes of objects referenced only by this repository.\nRestricted on cloud backends — see [`physical_bytes`].\n\n[`physical_bytes`]: Self::physical_bytes"
           }
         }
       },
@@ -32493,6 +34032,7 @@
           "require_signed_assertions",
           "is_enabled",
           "use_absolute_acs_url",
+          "map_groups_to_groups",
           "created_at",
           "updated_at"
         ],
@@ -32522,6 +34062,10 @@
           },
           "is_enabled": {
             "type": "boolean"
+          },
+          "map_groups_to_groups": {
+            "type": "boolean",
+            "description": "Opt-in flag (see migration 157, #2333): when true, SAML assertion\ngroup values are reflected as Artifact Keeper group memberships,\nmirroring the OIDC flag from #1094. Defaults to false."
           },
           "name": {
             "type": "string"
@@ -32758,6 +34302,24 @@
               "string",
               "null"
             ]
+          },
+          "collapsed_not_applicable_count": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "#2471: number of `not_applicable` scanner rows folded into this row.\n`Some(n)` marks a synthetic *summary* row that collapses `n` redundant\n\"this scanner does not apply\" results (e.g. the image-family scanners\n`filesystem`/`incus`/`openscap` all declining on a Docker image) into a\nsingle muted \"not applicable to this artifact\" indication, so the UI\nstops rendering N rows that read as N failures. `None` for every real\n(non-collapsed) scan row. Omitted from the wire when `None`."
+          },
+          "collapsed_scan_types": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "#2471: the individual `scan_type` values folded into a summary row,\nsorted and de-duplicated (e.g. `[\"filesystem\",\"incus\",\"openscap\"]`).\nPresent only on a synthetic summary row (alongside\n`collapsed_not_applicable_count`); `None` / omitted otherwise."
           },
           "completed_at": {
             "type": [
@@ -33350,6 +34912,34 @@
           "setup_required": {
             "type": "boolean",
             "description": "Whether the initial admin password change is still required."
+          }
+        }
+      },
+      "SignArtifactResponse": {
+        "type": "object",
+        "description": "Response from a deliberate per-artifact signing action (#2535).",
+        "required": [
+          "artifact_id",
+          "key_id",
+          "algorithm",
+          "signature_sha256"
+        ],
+        "properties": {
+          "algorithm": {
+            "type": "string"
+          },
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "key_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The active signing key that produced the attestation."
+          },
+          "signature_sha256": {
+            "type": "string",
+            "description": "SHA-256 of the produced signature blob (the blob itself is not persisted)."
           }
         }
       },
@@ -34072,6 +35662,28 @@
           },
           "storage_key": {
             "type": "string"
+          }
+        }
+      },
+      "SyncTriggerResponse": {
+        "type": "object",
+        "required": [
+          "repository",
+          "triggered",
+          "succeeded"
+        ],
+        "properties": {
+          "repository": {
+            "type": "string",
+            "description": "The repository key the sync was triggered for."
+          },
+          "succeeded": {
+            "type": "boolean",
+            "description": "Whether the sync pass completed without error. A false value with\n`triggered = true` means the pass ran but an upstream fetch/verify step\nfailed for the repo (details are in the server logs, not this response)."
+          },
+          "triggered": {
+            "type": "boolean",
+            "description": "Always true when the trigger was accepted and a sync pass ran."
           }
         }
       },
@@ -35374,6 +36986,30 @@
           }
         }
       },
+      "UpdateProjectRequest": {
+        "type": "object",
+        "properties": {
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "quota_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64"
+          }
+        }
+      },
       "UpdateRepositoryRequest": {
         "type": "object",
         "properties": {
@@ -35383,6 +37019,52 @@
               "null"
             ],
             "description": "Alias for `is_public`. When set to true, anonymous users can download\nartifacts without authentication. Useful for remote (pull-through cache)\nrepositories that proxy public upstream registries. Write operations\n(upload, delete) still require authentication regardless of this setting.\nIf both `is_public` and `allow_anonymous_access` are provided,\n`allow_anonymous_access` takes precedence."
+          },
+          "apt_description": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Description field for Debian/APT Release files. Pass an empty\nstring to remove (omits the field entirely from the Release file).\nStored in `repository_config` under `apt_description`."
+          },
+          "apt_label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Label field for Debian/APT Release files. Pass an empty string\nto reset to the default (\"artifact-keeper\").\nStored in `repository_config` under `apt_label`."
+          },
+          "apt_origin": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Origin field for Debian/APT Release files. Pass an empty string\nto reset to the default (\"artifact-keeper\").\nStored in `repository_config` under `apt_origin`."
+          },
+          "apt_release_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Custom Version field for Debian/APT Release files. Pass an empty\nstring to remove (omits the field entirely from the Release file).\nStored in `repository_config` under `apt_release_version`."
+          },
+          "custom_user_agent": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Update the custom User-Agent for outbound HTTP requests to the upstream.\nOnly valid for remote repositories. Pass an empty string to remove.\nMax 256 characters. Stored in `repository_config` under `custom_user_agent`."
+          },
+          "debian": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/DebianConfigPatch",
+                "description": "Update the Debian remote proxy filter (#2460). Three-way semantics:\nomit the field to leave the stored config unchanged; send `null` to\nclear it (revert to full-proxy); send an object to merge a partial\nupdate onto the stored config. Only valid for Debian Remote repos."
+              }
+            ]
           },
           "description": {
             "type": [
@@ -35414,6 +37096,41 @@
               "string",
               "null"
             ]
+          },
+          "npm_allow_unscoped": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Update whether unscoped npm package names may resolve through this npm\nRemote repository (#2424). Stored under `npm_allow_unscoped`."
+          },
+          "npm_allowed_name_patterns": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Update the allowed npm full-name glob patterns for this npm Remote\nrepository (#2424). When provided, replaces the stored\n`npm_allowed_name_patterns` list."
+          },
+          "npm_allowed_scopes": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "description": "Update the allowed npm `@scope` literals for this npm Remote repository\n(#2424). When provided, replaces the stored `npm_allowed_scopes` list."
+          },
+          "project_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Assign this repository to a project (#2472). P1 is set-only: omitting\nthe field leaves the assignment unchanged (unassignment ships with the\nproject-admin surface in P2)."
           },
           "promotion_only": {
             "type": [
@@ -35457,6 +37174,13 @@
               "null"
             ],
             "description": "Link this staging repository to a release (local) repository.\nPromotions from this staging repo will default to the linked release repo,\nand promotions to any other repo will be rejected.\nPass an empty string to remove the link.\nStored in `repository_config` under `release_repository_id`."
+          },
+          "trusted_gpg_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Update the trusted upstream OpenPGP public key for RPM curation (#2568).\nThree-way semantics via `Option<Option<String>>`: omit the field to\nleave the stored key unchanged; send `null` to clear it (revert to\n\"unverified upstream\"); send an ASCII-armored PUBLIC key block to set\nit. A private-key block or malformed armor is rejected (400). The\nresponse never echoes the key — only `has_trusted_gpg_key`."
           },
           "versioning_enabled": {
             "type": [
@@ -35560,6 +37284,12 @@
             ]
           },
           "is_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "map_groups_to_groups": {
             "type": [
               "boolean",
               "null"
