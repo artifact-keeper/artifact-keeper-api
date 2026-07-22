@@ -25,7 +25,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.6.0
+  version: 1.6.1
 servers:
 - url: /
   description: Current server
@@ -9576,7 +9576,18 @@ paths:
     put:
       tags:
       - repositories
-      summary: Update priorities for all members (bulk reorder)
+      summary: Replace the full member set of a virtual repository (add / remove / reorder).
+      description: '#2785: this is the "edit the members after creation" operation. The body is
+
+        the complete desired member list; members not listed are removed, listed
+
+        members that are not yet present are added, and priorities are refreshed.
+
+        The prior implementation only reordered members that already existed and
+
+        returned 404 for any member not already present, so adding a member through
+
+        an edit form failed.'
       operationId: update_virtual_members
       parameters:
       - name: key
@@ -9593,15 +9604,17 @@ paths:
         required: true
       responses:
         '200':
-          description: Members updated
+          description: Members replaced with the supplied set
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/VirtualMembersListResponse'
         '400':
-          description: Repository is not virtual
+          description: Repository is not virtual, or a member is invalid
         '401':
           description: Authentication required
+        '403':
+          description: Insufficient permissions
         '404':
           description: Repository not found
       security:
@@ -11914,8 +11927,7 @@ paths:
                 $ref: '#/components/schemas/SetupStatusResponse'
   /api/v1/signing/artifacts/{artifact_id}/sign:
     post:
-      tags:
-      - signing
+      tags: []
       summary: '`POST /api/v1/signing/artifacts/{artifact_id}/sign` — produce an authorized
 
         signature over the artifact''s content with the repository''s active signing
@@ -13592,9 +13604,15 @@ paths:
 
         `secret_encrypted` into `secret_previous_encrypted`, and stamps an
 
-        expiry 24 hours in the future. The new raw secret is returned in the
+        expiry 24 hours in the future. GHSA-qcmj: the new raw secret is NOT
 
-        response body **once**. The HMAC signing path (added in a later ticket)
+        returned in the response body — only success and non-reversible
+
+        metadata (`secret_digest`, previous-secret expiry). The new secret is
+
+        retained encrypted at rest and consumed out-of-band. The HMAC signing
+
+        path (added in a later ticket)
 
         signs deliveries with both secrets while the previous one is within
 
@@ -13623,7 +13641,7 @@ paths:
           format: uuid
       responses:
         '200':
-          description: Secret rotated. Body includes the new raw secret exactly once.
+          description: Secret rotated. Body reports success and metadata only; the raw secret is not returned.
           content:
             application/json:
               schema:
@@ -16378,6 +16396,15 @@ components:
           type:
           - string
           - 'null'
+        ca_certificate:
+          type:
+          - string
+          - 'null'
+          description: 'Inline PEM CA certificate/chain to trust for this provider''s LDAPS/
+
+            STARTTLS handshake (migration 169, #2782). Send an empty string to
+
+            clear a previously stored certificate.'
         display_name_attribute:
           type:
           - string
@@ -16398,6 +16425,17 @@ components:
           type:
           - string
           - 'null'
+        insecure_skip_verify:
+          type:
+          - boolean
+          - 'null'
+          description: 'Opt-in (migration 169, #2782): skip TLS certificate verification for
+
+            this provider''s LDAPS/STARTTLS handshake. Defaults false
+
+            (secure-by-default). Only enable for trusted networks / private CAs
+
+            you cannot import.'
         is_enabled:
           type:
           - boolean
@@ -19530,6 +19568,8 @@ components:
       - username_attribute
       - groups_attribute
       - use_starttls
+      - insecure_skip_verify
+      - has_ca_certificate
       - is_enabled
       - priority
       - created_at
@@ -19562,9 +19602,25 @@ components:
           type: string
         has_bind_password:
           type: boolean
+        has_ca_certificate:
+          type: boolean
+          description: 'Whether a custom inline CA certificate is configured for this provider
+
+            (migration 169, #2782). The PEM itself is not returned.'
         id:
           type: string
           format: uuid
+        insecure_skip_verify:
+          type: boolean
+          description: 'Opt-in flag (migration 169, #2782): when true, TLS certificate
+
+            verification is skipped for this provider''s LDAPS/STARTTLS handshake.
+
+            Defaults false (secure-by-default). Matches Harbor''s "insecure skip
+
+            verify"; only enable for trusted networks / private CAs you cannot
+
+            import.'
         is_enabled:
           type: boolean
         name:
@@ -22889,10 +22945,20 @@ components:
             type: string
     RotateWebhookSecretResponse:
       type: object
-      description: Response returned by the rotate-secret endpoint.
+      description: 'Response returned by the rotate-secret endpoint.
+
+
+        GHSA-qcmj: the raw signing secret is intentionally NOT returned here. A
+
+        rotation only reports success and non-reversible metadata (the display
+
+        `secret_digest` and the previous-secret expiry); the new raw secret is
+
+        retained only in encrypted form and delivered/consumed out-of-band, so it
+
+        cannot be disclosed via this response body or logs.'
       required:
       - id
-      - secret
       - secret_digest
       - previous_secret_expires_at
       properties:
@@ -22903,11 +22969,9 @@ components:
           type: string
           format: date-time
           description: When the previously active secret stops being accepted.
-        secret:
-          type: string
-          description: Raw signing secret produced by this rotation. Shown exactly once.
         secret_digest:
           type: string
+          description: Short, non-reversible identifier for the newly active signing secret.
     RoutingRule:
       type: object
       description: A single routing rule that maps an incoming path to a rewritten path.
@@ -25086,6 +25150,13 @@ components:
           type:
           - string
           - 'null'
+        ca_certificate:
+          type:
+          - string
+          - 'null'
+          description: 'Inline PEM CA certificate/chain (migration 169, #2782). Omit to leave
+
+            unchanged; send an empty string to clear.'
         display_name_attribute:
           type:
           - string
@@ -25106,6 +25177,13 @@ components:
           type:
           - string
           - 'null'
+        insecure_skip_verify:
+          type:
+          - boolean
+          - 'null'
+          description: 'See `CreateLdapConfigRequest::insecure_skip_verify` (migration 169,
+
+            #2782). Omit to leave the stored value unchanged.'
         is_enabled:
           type:
           - boolean

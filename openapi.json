@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.6.0"
+    "version": "1.6.1"
   },
   "servers": [
     {
@@ -15313,7 +15313,8 @@
         "tags": [
           "repositories"
         ],
-        "summary": "Update priorities for all members (bulk reorder)",
+        "summary": "Replace the full member set of a virtual repository (add / remove / reorder).",
+        "description": "#2785: this is the \"edit the members after creation\" operation. The body is\nthe complete desired member list; members not listed are removed, listed\nmembers that are not yet present are added, and priorities are refreshed.\nThe prior implementation only reordered members that already existed and\nreturned 404 for any member not already present, so adding a member through\nan edit form failed.",
         "operationId": "update_virtual_members",
         "parameters": [
           {
@@ -15338,7 +15339,7 @@
         },
         "responses": {
           "200": {
-            "description": "Members updated",
+            "description": "Members replaced with the supplied set",
             "content": {
               "application/json": {
                 "schema": {
@@ -15348,10 +15349,13 @@
             }
           },
           "400": {
-            "description": "Repository is not virtual"
+            "description": "Repository is not virtual, or a member is invalid"
           },
           "401": {
             "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient permissions"
           },
           "404": {
             "description": "Repository not found"
@@ -18948,9 +18952,7 @@
     },
     "/api/v1/signing/artifacts/{artifact_id}/sign": {
       "post": {
-        "tags": [
-          "signing"
-        ],
+        "tags": [],
         "summary": "`POST /api/v1/signing/artifacts/{artifact_id}/sign` — produce an authorized\nsignature over the artifact's content with the repository's active signing\nkey and record the attestation the promotion `require_signature` gate reads\n(#2535).",
         "description": "This is the ONLY writer of the per-artifact `used_for_signing` marker, and\nit is admin-gated: an artifact can satisfy `require_signature` only through a\ndeliberate, authenticated signing action over its bytes — never as a side\neffect of an (anonymous) repository-metadata read. Format-agnostic: signs\ncontent bytes, so it works for every hosted format, not just the\nmetadata-signing ones. Proxy-cached remote artifacts (no `artifacts` row)\ncannot be signed and therefore stay fail-closed under `require_signature`.",
         "operationId": "sign_artifact",
@@ -21596,7 +21598,7 @@
           "webhooks"
         ],
         "summary": "Rotate the signing secret for a webhook.",
-        "description": "Generates a new raw secret, encrypts it, moves the existing\n`secret_encrypted` into `secret_previous_encrypted`, and stamps an\nexpiry 24 hours in the future. The new raw secret is returned in the\nresponse body **once**. The HMAC signing path (added in a later ticket)\nsigns deliveries with both secrets while the previous one is within\nits expiry window so consumers can rotate without dropped events.\n\nIf a previous-secret window is still active when the rotate request\narrives, the request is REJECTED with HTTP 409 Conflict. This prevents\ntwo near-simultaneous rotations from clobbering the original\n`secret_previous_encrypted` material before the operator has finished\ndistributing the previous new key. The 409 body is structured:\n`{\"error\": \"rotation_already_in_progress\", \"expires_at\": \"<RFC3339>\"}`.",
+        "description": "Generates a new raw secret, encrypts it, moves the existing\n`secret_encrypted` into `secret_previous_encrypted`, and stamps an\nexpiry 24 hours in the future. GHSA-qcmj: the new raw secret is NOT\nreturned in the response body — only success and non-reversible\nmetadata (`secret_digest`, previous-secret expiry). The new secret is\nretained encrypted at rest and consumed out-of-band. The HMAC signing\npath (added in a later ticket)\nsigns deliveries with both secrets while the previous one is within\nits expiry window so consumers can rotate without dropped events.\n\nIf a previous-secret window is still active when the rotate request\narrives, the request is REJECTED with HTTP 409 Conflict. This prevents\ntwo near-simultaneous rotations from clobbering the original\n`secret_previous_encrypted` material before the operator has finished\ndistributing the previous new key. The 409 body is structured:\n`{\"error\": \"rotation_already_in_progress\", \"expires_at\": \"<RFC3339>\"}`.",
         "operationId": "rotate_webhook_secret",
         "parameters": [
           {
@@ -21612,7 +21614,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Secret rotated. Body includes the new raw secret exactly once.",
+            "description": "Secret rotated. Body reports success and metadata only; the raw secret is not returned.",
             "content": {
               "application/json": {
                 "schema": {
@@ -25331,6 +25333,13 @@
               "null"
             ]
           },
+          "ca_certificate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Inline PEM CA certificate/chain to trust for this provider's LDAPS/\nSTARTTLS handshake (migration 169, #2782). Send an empty string to\nclear a previously stored certificate."
+          },
           "display_name_attribute": {
             "type": [
               "string",
@@ -25360,6 +25369,13 @@
               "string",
               "null"
             ]
+          },
+          "insecure_skip_verify": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Opt-in (migration 169, #2782): skip TLS certificate verification for\nthis provider's LDAPS/STARTTLS handshake. Defaults false\n(secure-by-default). Only enable for trusted networks / private CAs\nyou cannot import."
           },
           "is_enabled": {
             "type": [
@@ -29466,6 +29482,8 @@
           "username_attribute",
           "groups_attribute",
           "use_starttls",
+          "insecure_skip_verify",
+          "has_ca_certificate",
           "is_enabled",
           "priority",
           "created_at",
@@ -29512,9 +29530,17 @@
           "has_bind_password": {
             "type": "boolean"
           },
+          "has_ca_certificate": {
+            "type": "boolean",
+            "description": "Whether a custom inline CA certificate is configured for this provider\n(migration 169, #2782). The PEM itself is not returned."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
+          },
+          "insecure_skip_verify": {
+            "type": "boolean",
+            "description": "Opt-in flag (migration 169, #2782): when true, TLS certificate\nverification is skipped for this provider's LDAPS/STARTTLS handshake.\nDefaults false (secure-by-default). Matches Harbor's \"insecure skip\nverify\"; only enable for trusted networks / private CAs you cannot\nimport."
           },
           "is_enabled": {
             "type": "boolean"
@@ -33833,10 +33859,9 @@
       },
       "RotateWebhookSecretResponse": {
         "type": "object",
-        "description": "Response returned by the rotate-secret endpoint.",
+        "description": "Response returned by the rotate-secret endpoint.\n\nGHSA-qcmj: the raw signing secret is intentionally NOT returned here. A\nrotation only reports success and non-reversible metadata (the display\n`secret_digest` and the previous-secret expiry); the new raw secret is\nretained only in encrypted form and delivered/consumed out-of-band, so it\ncannot be disclosed via this response body or logs.",
         "required": [
           "id",
-          "secret",
           "secret_digest",
           "previous_secret_expires_at"
         ],
@@ -33850,12 +33875,9 @@
             "format": "date-time",
             "description": "When the previously active secret stops being accepted."
           },
-          "secret": {
-            "type": "string",
-            "description": "Raw signing secret produced by this rotation. Shown exactly once."
-          },
           "secret_digest": {
-            "type": "string"
+            "type": "string",
+            "description": "Short, non-reversible identifier for the newly active signing secret."
           }
         }
       },
@@ -36715,6 +36737,13 @@
               "null"
             ]
           },
+          "ca_certificate": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Inline PEM CA certificate/chain (migration 169, #2782). Omit to leave\nunchanged; send an empty string to clear."
+          },
           "display_name_attribute": {
             "type": [
               "string",
@@ -36744,6 +36773,13 @@
               "string",
               "null"
             ]
+          },
+          "insecure_skip_verify": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "See `CreateLdapConfigRequest::insecure_skip_verify` (migration 169,\n#2782). Omit to leave the stored value unchanged."
           },
           "is_enabled": {
             "type": [
