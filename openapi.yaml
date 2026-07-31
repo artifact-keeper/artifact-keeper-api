@@ -25,7 +25,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.6.3
+  version: 1.7.0
 servers:
 - url: /
   description: Current server
@@ -122,6 +122,33 @@ paths:
       tags:
       - age-gate
       operationId: reject_review
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewActionRequest'
+        required: true
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgeGateReviewResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/admin/age-gate/reviews/{id}/reopen:
+    post:
+      tags:
+      - age-gate
+      operationId: reopen_review
       parameters:
       - name: id
         in: path
@@ -4493,6 +4520,65 @@ paths:
           description: Not authorized to trigger a sync for this repo
         '404':
           description: Repository not found
+  /api/v1/curation/repos/{repo_key}/versions:
+    post:
+      tags:
+      - Curation
+      operationId: create_curation_version
+      parameters:
+      - name: repo_key
+        in: path
+        description: Staging repository key
+        required: true
+        schema:
+          type: string
+      responses:
+        '201':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+        '400':
+          description: No approved packages / packages need re-sync
+        '403':
+          description: Not authorized for this repo
+        '404':
+          description: Repository not found
+  /api/v1/curation/repos/{repo_key}/versions/{n}/publish:
+    post:
+      tags:
+      - Curation
+      operationId: publish_curation_version
+      parameters:
+      - name: repo_key
+        in: path
+        description: Staging repository key
+        required: true
+        schema:
+          type: string
+      - name: n
+        in: path
+        description: Version number to publish
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '200':
+          description: ''
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VersionResponse'
+        '400':
+          description: Empty version / missing snippet / no signing key
+        '403':
+          description: Not authorized for this repo
+        '404':
+          description: Repository or version not found
+        '409':
+          description: Version already published (immutable)
   /api/v1/curation/rules:
     get:
       tags:
@@ -4506,6 +4592,12 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: scope
+        in: query
+        description: 'Filter by rule scope: `global` lists only the instance-wide baseline rules (admin-only)'
+        required: false
+        schema:
+          type: string
       responses:
         '200':
           description: ''
@@ -8742,6 +8834,46 @@ paths:
           description: Artifact not found
       security:
       - bearer_auth: []
+  /api/v1/quarantine/{artifact_id}/quarantine:
+    post:
+      tags:
+      - quarantine
+      summary: Quarantine an artifact immediately (admin only)
+      operationId: quarantine_artifact_now
+      parameters:
+      - name: artifact_id
+        in: path
+        description: Artifact ID
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        description: Optional; empty body uses the default reason
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuarantineNowRequest'
+        required: true
+      responses:
+        '200':
+          description: Artifact quarantined
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuarantineActionResponse'
+        '400':
+          description: Malformed request body
+        '401':
+          description: Authentication required
+        '403':
+          description: Admin access required
+        '404':
+          description: Artifact not found
+        '409':
+          description: Artifact was rejected during security review
+      security:
+      - bearer_auth: []
   /api/v1/quarantine/{artifact_id}/reject:
     post:
       tags:
@@ -9075,6 +9207,40 @@ paths:
           \ array of each component.\n- `docker_tag`: Docker/OCI artifacts are grouped by (image, tag),\n  with `total_size_bytes`\
           \ summed across the manifest config and\n  referenced layer blobs.  The grouped rows are returned in the\n  `docker_tags`\
           \ array."
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: cursor
+        in: query
+        description: 'Opaque keyset cursor (#2520, #2519, #2518). Pass the `next_cursor`
+
+          value from the previous response to fetch the next page; `page` is
+
+          ignored while a cursor is present. Supported by the flat artifact
+
+          listing of hosted/local, virtual, and remote repositories (#2518,
+
+          #2519), by `group_by=docker_tag`, and by `group_by=maven_component`
+
+          on remote repositories; other listing modes ignore it.'
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: count
+        in: query
+        description: 'Total-count mode for keyset-paged listings (#2520, #2519).
+
+          `count=exact` runs a dedicated COUNT query so `pagination.total` is
+
+          exact; otherwise the keyset-paged listings report a cheap lower bound
+
+          (rows seen so far, +1 when another page exists) and `has_more` is the
+
+          authoritative "is there a next page" signal.'
         required: false
         schema:
           type:
@@ -10097,6 +10263,69 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RepositoryStorageStatsResponse'
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/storage/tree:
+    get:
+      tags:
+      - repositories
+      summary: Get the per-prefix (folder tree) storage rollup for a repository (#2601).
+      description: 'Returns the requested prefix''s own rollup plus its descendant folder nodes
+
+        (default: immediate children) from the materialized per-prefix cache. Same
+
+        visibility rules as `get_repository`: public repos and repo members pass;
+
+        everyone else gets an existence-hiding 404.'
+      operationId: get_repository_storage_tree
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: prefix
+        in: query
+        description: 'Folder prefix to root the listing at (`''''`/absent = repository root).
+
+          Leading/trailing slashes are ignored.'
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: depth
+        in: query
+        description: 'How many tree levels below `prefix` to return (default 1 = immediate
+
+          children, clamped to 1..=5).'
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int32
+      - name: limit
+        in: query
+        description: 'Maximum number of descendant nodes returned (default 200, clamped to
+
+          1..=1000). `truncated` is set when the limit cut the listing.'
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      responses:
+        '200':
+          description: Per-prefix storage rollup
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryStorageTreeResponse'
         '404':
           description: Repository not found
       security:
@@ -11927,7 +12156,8 @@ paths:
                 $ref: '#/components/schemas/SetupStatusResponse'
   /api/v1/signing/artifacts/{artifact_id}/sign:
     post:
-      tags: []
+      tags:
+      - signing
       summary: '`POST /api/v1/signing/artifacts/{artifact_id}/sign` — produce an authorized
 
         signature over the artifact''s content with the repository''s active signing
@@ -14435,10 +14665,28 @@ components:
           items:
             $ref: '#/components/schemas/DockerTagResponse'
           description: Docker tag grouping.  Only present when `group_by=docker_tag`.
+        has_more:
+          type:
+          - boolean
+          - 'null'
+          description: 'Whether another page exists after this one (#2520, #2518). Present on
+
+            keyset-paged listings (flat and grouped); authoritative regardless of
+
+            the `pagination.total` mode (exact vs lower bound).'
         items:
           type: array
           items:
             $ref: '#/components/schemas/ArtifactResponse'
+        next_cursor:
+          type:
+          - string
+          - 'null'
+          description: 'Opaque keyset cursor for the next page (#2520, #2518). Present on
+
+            keyset-paged listings (flat and grouped) when another page exists;
+
+            pass it back via `?cursor=`.'
         pagination:
           $ref: '#/components/schemas/Pagination'
     ArtifactMetadataResponse:
@@ -14469,6 +14717,7 @@ components:
       - download_count
       - created_at
       - analyzable
+      - quarantine_status
       properties:
         analyzable:
           type: boolean
@@ -14538,6 +14787,26 @@ components:
           type: string
         path:
           type: string
+        quarantine_status:
+          type: string
+          description: "Per-artifact quarantine state so a client/operator can tell which\nlisted artifacts are held for security\
+            \ review (#2940). Always\nserialized so the listing never hides the control:\n- `\"quarantined\"` — held pending\
+            \ review; downloads return 409 (until\n  any `quarantine_until` lapses),\n- `\"rejected\"` — terminally blocked\
+            \ by an admin,\n- a scan-lifecycle state (`\"clean\"`, `\"flagged\"`, `\"unscanned\"`,\n  `\"released\"`),\n-\
+            \ `\"not_quarantined\"` — the explicit default when the row carries no\n  quarantine state, so clients never have\
+            \ to treat a missing value as\n  a state.\n\nThe human-readable *reason* is intentionally NOT surfaced here: it\
+            \ is\nper-artifact security detail disclosed only by the authenticated,\nrepository-visibility-checked `GET /api/v1/quarantine/{id}`\
+            \ (#2912),\nwhereas this listing is reachable anonymously on public repositories."
+        quarantine_until:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: 'When a timed quarantine hold lapses and the artifact becomes
+
+            downloadable again. `None` for a permanent (admin) quarantine and for
+
+            artifacts that are not quarantined. (#2940)'
         repository_key:
           type: string
         revision:
@@ -14823,10 +15092,30 @@ components:
       - oidc_enabled
       - ldap_enabled
       - sso_enabled
+      - local_login_enabled
       properties:
         ldap_enabled:
           type: boolean
           description: Whether an LDAP directory is configured.
+        local_login_enabled:
+          type: boolean
+          description: 'Whether the login UI should offer the local username/password form
+
+            (issue #2621). `true` when no SSO provider is enabled; with SSO
+
+            enabled it is `true` only when the operator explicitly opted in via
+
+            `ALLOW_LOCAL_ADMIN_LOGIN=true` and has not enforced strict SSO-only
+
+            via `SSO_DISABLE_ADMIN_BREAK_GLASS`. Display-only: the login endpoint
+
+            independently enforces the same policy server-side
+
+            (`api::handlers::auth::local_login_gate`), so this flag never grants
+
+            access by itself. LDAP is separate — the UI shows the credentials form
+
+            for enabled LDAP providers regardless of this flag.'
         oidc_enabled:
           type: boolean
           description: Whether an OIDC provider is configured.
@@ -16126,6 +16415,37 @@ components:
     CreateBackupRequest:
       type: object
       properties:
+        exclude_repositories:
+          type:
+          - array
+          - 'null'
+          items:
+            type: string
+            format: uuid
+          description: 'Repository ids to exclude from a full or incremental backup (#2772).
+
+
+            Airgapped or bandwidth-limited deployments use this to keep specific
+
+            repositories out of the backup. When omitted or empty nothing is
+
+            excluded, so existing behavior is unchanged. If `repository_ids` is
+
+            also supplied the excluded ids are removed from that include list;
+
+            otherwise every repository except the excluded ones is backed up.'
+        name:
+          type:
+          - string
+          - 'null'
+          description: 'Optional custom name/label for the backup archive (#2790).
+
+
+            When provided it becomes the identifying part of the archive
+
+            filename. Restricted to letters, digits, `.`, `_`, and `-`; when
+
+            omitted the archive keeps its default `{uuid}` name.'
         repository_ids:
           type:
           - array
@@ -16133,6 +16453,27 @@ components:
           items:
             type: string
             format: uuid
+          description: 'Explicit allow-list of repository ids to include in the backup.
+
+
+            When omitted every repository is backed up (subject to
+
+            `exclude_repositories`).'
+        since:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: 'Optional RFC3339 lower bound on artifact modification time (#2789).
+
+
+            When set, the (typically incremental) backup includes only artifacts
+
+            whose `updated_at` is at or after this timestamp, capturing just the
+
+            changes made from the given date/time to now. When omitted every
+
+            artifact is included, so backup behavior is unchanged.'
         type:
           type:
           - string
@@ -16402,7 +16743,7 @@ components:
           - 'null'
           description: 'Inline PEM CA certificate/chain to trust for this provider''s LDAPS/
 
-            STARTTLS handshake (migration 169, #2782). Send an empty string to
+            STARTTLS handshake (migration 174, #2782). Send an empty string to
 
             clear a previously stored certificate.'
         display_name_attribute:
@@ -16429,7 +16770,7 @@ components:
           type:
           - boolean
           - 'null'
-          description: 'Opt-in (migration 169, #2782): skip TLS certificate verification for
+          description: 'Opt-in (migration 174, #2782): skip TLS certificate verification for
 
             this provider''s LDAPS/STARTTLS handshake. Defaults false
 
@@ -16742,6 +17083,19 @@ components:
           description: 'Custom Version field for Debian/APT Release files.
 
             Stored in `repository_config` under `apt_release_version`.'
+        curation_allow_unverified:
+          type:
+          - boolean
+          - 'null'
+          description: 'Opt into ingesting UNVERIFIED upstream metadata on the keyless RPM
+
+            curation-sync path (#2569). Omit or `false` to keep the fail-closed
+
+            default (a keyless curation sync refuses to ingest unverified upstream
+
+            packages); `true` reverts to the legacy unverified-ingest behavior. Only
+
+            meaningful for RPM curation staging repositories.'
         custom_user_agent:
           type:
           - string
@@ -17356,6 +17710,10 @@ components:
           type:
           - string
           - 'null'
+        external_source:
+          type:
+          - string
+          - 'null'
         id:
           type: string
           format: uuid
@@ -17402,7 +17760,6 @@ components:
     CurationCreateRuleRequest:
       type: object
       required:
-      - package_pattern
       - action
       - reason
       properties:
@@ -17410,18 +17767,39 @@ components:
           type: string
         architecture:
           type: string
+        config:
+          type: object
+          description: Engine-specific parameters (JSON object). `{}` for `pattern` rules.
         package_pattern:
           type: string
+          description: 'Only meaningful for `rule_type = "pattern"`; defaults to `*` so typed
+
+            rules (`publisher_trust`, `popularity`) can omit it.'
         priority:
           type: integer
           format: int32
         reason:
           type: string
+        rule_type:
+          type: string
+          description: 'Evaluation engine: `pattern` (default), `publisher_trust`, `popularity`.'
+        scope:
+          type:
+          - string
+          - 'null'
+          description: '`repository` (default when `staging_repo_id` is set) or `global`.
+
+            When present it must be consistent with `staging_repo_id`: `global`
+
+            forbids a repo id, `repository` requires one.'
         staging_repo_id:
           type:
           - string
           - 'null'
           format: uuid
+          description: 'Omit (with `scope: "global"` or no `scope`) to create an instance-wide
+
+            baseline rule; set to attach the rule to one staging repository.'
         version_constraint:
           type: string
     CurationPackageResponse:
@@ -17502,6 +17880,9 @@ components:
           type: string
         architecture:
           type: string
+        config:
+          type: object
+          description: Engine-specific parameters (JSON object). `{}` for `pattern` rules.
         enabled:
           type: boolean
         package_pattern:
@@ -17511,6 +17892,9 @@ components:
           format: int32
         reason:
           type: string
+        rule_type:
+          type: string
+          description: 'Evaluation engine: `pattern` (default), `publisher_trust`, `popularity`.'
         version_constraint:
           type: string
     CveHistoryEntry:
@@ -17809,6 +18193,10 @@ components:
 
         the default when none exists yet.'
       properties:
+        allow_encoded_separators:
+          type:
+          - boolean
+          - 'null'
         architectures:
           type:
           - array
@@ -17898,6 +18286,19 @@ components:
 
         permitted regardless of the `architectures` allowlist.'
       properties:
+        allow_encoded_separators:
+          type: boolean
+          description: 'Defense-in-depth (#2562): when `false` (the default) a proxy request
+
+            whose path carries a percent-encoded path separator (`%2f` = `/`,
+
+            `%5c` = `\`, at any decode layer) is rejected with 400 before any
+
+            upstream fetch. APT never percent-encodes path separators, so this only
+
+            ever blocks path-confusion/traversal probes; set it `true` to opt out
+
+            for a nonstandard upstream that genuinely requires encoded separators.'
         architectures:
           type: array
           items:
@@ -18184,6 +18585,16 @@ components:
         download_count:
           type: integer
           format: int64
+        proxy_download_count:
+          type: integer
+          format: int64
+          description: 'Proxy-served (pull-through) downloads for the day, from the sibling
+
+            `proxy_download_statistics` table (#2537/#2704). Additive: hosted
+
+            serves stay in `download_count` unchanged; defaults to 0 when
+
+            deserializing older payloads.'
     DtAnalysis:
       type: object
       description: Analysis state for a finding
@@ -19178,6 +19589,11 @@ components:
           type:
           - string
           - 'null'
+        external_source:
+          type:
+          - string
+          - 'null'
+          description: See [`GroupRow::external_source`]; lets the frontend disable member editing for SSO groups.
         id:
           type: string
           format: uuid
@@ -19205,6 +19621,12 @@ components:
           type:
           - string
           - 'null'
+        external_source:
+          type:
+          - string
+          - 'null'
+          description: SSO provider owning the group (`oidc`/`saml`/`ldap`); `None` for local groups. IdP owns membership
+            (#2874).
         id:
           type: string
           format: uuid
@@ -19606,13 +20028,13 @@ components:
           type: boolean
           description: 'Whether a custom inline CA certificate is configured for this provider
 
-            (migration 169, #2782). The PEM itself is not returned.'
+            (migration 174, #2782). The PEM itself is not returned.'
         id:
           type: string
           format: uuid
         insecure_skip_verify:
           type: boolean
-          description: 'Opt-in flag (migration 169, #2782): when true, TLS certificate
+          description: 'Opt-in flag (migration 174, #2782): when true, TLS certificate
 
             verification is skipped for this provider''s LDAPS/STARTTLS handshake.
 
@@ -19791,6 +20213,34 @@ components:
     ListArtifactsQuery:
       type: object
       properties:
+        count:
+          type:
+          - string
+          - 'null'
+          description: 'Total-count mode for keyset-paged listings (#2520, #2519).
+
+            `count=exact` runs a dedicated COUNT query so `pagination.total` is
+
+            exact; otherwise the keyset-paged listings report a cheap lower bound
+
+            (rows seen so far, +1 when another page exists) and `has_more` is the
+
+            authoritative "is there a next page" signal.'
+        cursor:
+          type:
+          - string
+          - 'null'
+          description: 'Opaque keyset cursor (#2520, #2519, #2518). Pass the `next_cursor`
+
+            value from the previous response to fetch the next page; `page` is
+
+            ignored while a cursor is present. Supported by the flat artifact
+
+            listing of hosted/local, virtual, and remote repositories (#2518,
+
+            #2519), by `group_by=docker_tag`, and by `group_by=maven_component`
+
+            on remote repositories; other listing modes ignore it.'
         group_by:
           type:
           - string
@@ -21991,6 +22441,14 @@ components:
           type: string
         new_status:
           type: string
+    QuarantineNowRequest:
+      type: object
+      properties:
+        reason:
+          type:
+          - string
+          - 'null'
+          description: Reason shown to developers whose downloads are blocked.
     QuarantineStatusResponse:
       type: object
       required:
@@ -22002,6 +22460,17 @@ components:
           format: uuid
         is_blocked:
           type: boolean
+        quarantine_reason:
+          type:
+          - string
+          - 'null'
+          description: 'Why the artifact is held, when one was recorded by a scan policy or an
+
+            admin. This is the only surface that discloses the reason: blocked
+
+            downloads return a generic message because they are reachable
+
+            anonymously on public repositories (#2912).'
         quarantine_status:
           type:
           - string
@@ -22410,6 +22879,8 @@ components:
       - storage_used_bytes
       - has_trusted_gpg_key
       - upstream_auth_configured
+      - curation_enabled
+      - curation_default_action
       - created_at
       - updated_at
       properties:
@@ -22447,6 +22918,21 @@ components:
         created_at:
           type: string
           format: date-time
+        curation_default_action:
+          type: string
+          description: 'Stance applied when no curation rule matches: `allow` or `review`.'
+        curation_enabled:
+          type: boolean
+          description: 'Whether curation rules are enforced for this repository (#2912).
+
+
+            Echoed back because this flag now *blocks downloads* on the PyPI proxy
+
+            paths, and a security control that cannot be read back is the same class of
+
+            problem as one that is stored but not enforced. Stored on the repositories
+
+            row, so unlike `quarantine_enabled` this needs no separate lookup.'
         custom_user_agent:
           type:
           - string
@@ -22661,6 +23147,20 @@ components:
           - string
           - 'null'
           format: date-time
+        proxy_download_count:
+          type: integer
+          format: int64
+          description: 'Downloads served by this repository''s remote pull-through proxy
+
+            (`proxy_download_statistics`, #2537/#2704). Proxy-cached objects carry
+
+            no `artifacts` row (#1280), so these serves are counted in a sibling
+
+            table and were previously not readable through any API. Kept separate
+
+            from `download_count` (hosted serves) so existing consumers are
+
+            unaffected; defaults to 0 when deserializing older payloads.'
         repository_id:
           type: string
           format: uuid
@@ -22792,6 +23292,73 @@ components:
 
 
             [`physical_bytes`]: Self::physical_bytes'
+    RepositoryStorageTreeResponse:
+      type: object
+      description: 'Per-prefix (folder tree) storage rollup response (#2601).
+
+
+        All figures are read from the materialized `repository_path_storage_stats`
+
+        cache (refreshed on the storage-stats schedule + post-GC) — a tree call is
+
+        an index scan over pre-aggregated rows, never a walk of the artifact table.
+
+
+        Every figure is within-repository only (references this repo holds), so
+
+        unlike the repo-level endpoint''s cross-tenant-derivable dedup breakdown
+
+        (#2560) nothing here needs an admin restriction beyond repo visibility.'
+      required:
+      - repository_key
+      - node
+      - children
+      - truncated
+      - max_materialized_depth
+      properties:
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/StorageTreeNode'
+          description: 'Descendant folder nodes, up to `depth` levels below `node`, largest
+
+            `logical_bytes` first.'
+        computed_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: When the rollup was last recomputed. `null` before the first refresh.
+        max_materialized_depth:
+          type: integer
+          format: int32
+          description: 'Folder levels below the root that are individually materialized;
+
+            deeper files roll up into their ancestor at this depth.'
+        node:
+          $ref: '#/components/schemas/StorageTreeNode'
+          description: 'The node the listing is rooted at (zeros when the prefix has no
+
+            materialized data — unknown folder or refresher not yet run).'
+        repository_key:
+          type: string
+        truncated:
+          type: boolean
+          description: True when `limit` cut the descendant listing.
+        unattributed_bytes:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 'Bytes referenced by this repository that carry no logical path and so
+
+            cannot be placed in the tree (today: OCI layer blobs; the blob→image
+
+            edge lives only in manifest content). Root-level figure; present only
+
+            when the request is rooted at `''''`. `node.logical_bytes +
+
+            unattributed_bytes` reconciles with the repo-level logical total.'
     RescanForInventoryRequest:
       type: object
       properties:
@@ -23031,6 +23598,9 @@ components:
       - priority
       - reason
       - enabled
+      - rule_type
+      - config
+      - scope
       - created_at
       - updated_at
       properties:
@@ -23038,6 +23608,8 @@ components:
           type: string
         architecture:
           type: string
+        config:
+          type: object
         created_at:
           type: string
         created_by:
@@ -23056,6 +23628,10 @@ components:
           type: integer
           format: int32
         reason:
+          type: string
+        rule_type:
+          type: string
+        scope:
           type: string
         staging_repo_id:
           type:
@@ -23240,6 +23816,7 @@ components:
       - scan_on_proxy
       - block_on_policy_violation
       - severity_threshold
+      - proxy_scan_action
       - created_at
       - updated_at
       properties:
@@ -23251,6 +23828,11 @@ components:
         id:
           type: string
           format: uuid
+        proxy_scan_action:
+          type: string
+          description: '#2954: fail-open (default) / fail-closed action for the inline proxy
+
+            scan-on-fetch.'
         repository_id:
           type: string
           format: uuid
@@ -23785,6 +24367,17 @@ components:
       required:
       - setup_required
       properties:
+        setup_password_hint:
+          type:
+          - string
+          - 'null'
+          description: 'Optional deployment-aware instruction for retrieving the generated
+
+            initial admin password, sourced from the `SETUP_PASSWORD_HINT` env var.
+
+            Present only when an operator has configured it; when absent, the web UI
+
+            falls back to its built-in Docker Compose instruction (#2802).'
         setup_required:
           type: boolean
           description: Whether the initial admin password change is still required.
@@ -24144,6 +24737,75 @@ components:
         total_users:
           type: integer
           format: int64
+    StorageTreeNode:
+      type: object
+      description: One folder node in the per-prefix storage rollup (#2601).
+      required:
+      - prefix
+      - depth
+      - logical_bytes
+      - physical_bytes
+      - file_count
+      - blob_count
+      properties:
+        blob_count:
+          type: integer
+          format: int64
+          description: Distinct physical objects under this prefix.
+        depth:
+          type: integer
+          format: int32
+          description: Number of path segments in `prefix` (0 = root).
+        file_count:
+          type: integer
+          format: int64
+          description: References (artifact/proxy-cache rows) under this prefix.
+        logical_bytes:
+          type: integer
+          format: int64
+          description: Sum over every artifact/proxy-cache reference under this prefix.
+        physical_bytes:
+          type: integer
+          format: int64
+          description: 'Deduplicated within this repository: each distinct physical object
+
+            under the prefix counted once. Because an object shared by two sibling
+
+            subtrees counts once in each but once at their common ancestor, the sum
+
+            of children''s `physical_bytes` can exceed the parent''s — the difference
+
+            is the cross-subtree dedup saving.'
+        prefix:
+          type: string
+          description: Canonical prefix (no leading/trailing `/`; `''` = repository root).
+    StorageTreeQuery:
+      type: object
+      description: Query parameters for the per-prefix storage tree (#2601).
+      properties:
+        depth:
+          type:
+          - integer
+          - 'null'
+          format: int32
+          description: 'How many tree levels below `prefix` to return (default 1 = immediate
+
+            children, clamped to 1..=5).'
+        limit:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          description: 'Maximum number of descendant nodes returned (default 200, clamped to
+
+            1..=1000). `truncated` is set when the limit cut the listing.'
+        prefix:
+          type:
+          - string
+          - 'null'
+          description: 'Folder prefix to root the listing at (`''''`/absent = repository root).
+
+            Leading/trailing slashes are ignored.'
     SubmitCrashesRequest:
       type: object
       required:
@@ -25154,7 +25816,7 @@ components:
           type:
           - string
           - 'null'
-          description: 'Inline PEM CA certificate/chain (migration 169, #2782). Omit to leave
+          description: 'Inline PEM CA certificate/chain (migration 174, #2782). Omit to leave
 
             unchanged; send an empty string to clear.'
         display_name_attribute:
@@ -25181,7 +25843,7 @@ components:
           type:
           - boolean
           - 'null'
-          description: 'See `CreateLdapConfigRequest::insecure_skip_verify` (migration 169,
+          description: 'See `CreateLdapConfigRequest::insecure_skip_verify` (migration 174,
 
             #2782). Omit to leave the stored value unchanged.'
         is_enabled:
@@ -25402,6 +26064,8 @@ components:
           format: int64
     UpdateRepositoryRequest:
       type: object
+      required:
+      - curation_default_action
       properties:
         allow_anonymous_access:
           type:
@@ -25454,6 +26118,35 @@ components:
             string to remove (omits the field entirely from the Release file).
 
             Stored in `repository_config` under `apt_release_version`.'
+        curation_allow_unverified:
+          type:
+          - boolean
+          - 'null'
+          description: 'Update the keyless-sync unverified-ingest opt-in (#2569). When provided,
+
+            sets `curation_allow_unverified` (`false` restores the fail-closed
+
+            default; `true` opts into legacy unverified ingest). Omit to leave it
+
+            unchanged.'
+        curation_default_action:
+          type: string
+          description: 'Default curation action when no rule matches: allow or review.
+
+            "block" is rejected (DB CHECK, migration 071); use block rules for
+
+            specific packages instead.
+
+
+            The allowed set is spelled out in the schema so a generated SDK presents it
+
+            rather than an unconstrained string.'
+          example: allow
+        curation_enabled:
+          type:
+          - boolean
+          - 'null'
+          description: Enable curation-rule enforcement on this repository's proxy paths.
         custom_user_agent:
           type:
           - string
@@ -25869,6 +26562,13 @@ components:
           type:
           - boolean
           - 'null'
+        proxy_scan_action:
+          type:
+          - string
+          - 'null'
+          description: '#2954: `''fail_open''` (default) | `''fail_closed''` for the inline proxy
+
+            scan-on-fetch action.'
         scan_enabled:
           type:
           - boolean
@@ -25939,6 +26639,28 @@ components:
           type: boolean
         username:
           type: string
+    VersionResponse:
+      type: object
+      required:
+      - repository
+      - version_number
+      - package_count
+      - published
+      properties:
+        package_count:
+          type: integer
+          format: int64
+          description: The number of approved packages frozen into the snapshot.
+        published:
+          type: boolean
+          description: Whether this version's signed repodata has been published yet.
+        repository:
+          type: string
+          description: The repository key the version belongs to.
+        version_number:
+          type: integer
+          format: int64
+          description: The monotonic snapshot number (published/served under `/rpm/{key}/@N/`).
     VirtualMemberPriority:
       type: object
       required:
