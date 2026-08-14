@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.7.0"
+    "version": "1.7.3"
   },
   "servers": [
     {
@@ -975,6 +975,7 @@
           "admin"
         ],
         "summary": "Execute a pending backup",
+        "description": "Answers with the backup resource as persisted after the run. A run that\nFAILED is reported as `status = \"failed\"` with `error_message` naming the\ncause — it is not a transport-level error, because the request was\nunderstood and carried out and the outcome belongs to the backup (#3327).\nClients must read `status`, not just the HTTP code. `500` is reserved for\nthe cases where no run outcome exists to report at all.",
         "operationId": "execute_backup",
         "parameters": [
           {
@@ -990,7 +991,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Backup executed",
+            "description": "Backup run finished; `status` is `completed` or `failed` and `error_message` carries the cause of a failure",
             "content": {
               "application/json": {
                 "schema": {
@@ -1002,8 +1003,11 @@
           "404": {
             "description": "Backup not found"
           },
+          "409": {
+            "description": "Another backup is already in progress"
+          },
           "500": {
-            "description": "Internal server error"
+            "description": "The run could not be started or its outcome could not be recorded"
           }
         },
         "security": [
@@ -15550,7 +15554,7 @@
           "repositories"
         ],
         "summary": "Replace the full member set of a virtual repository (add / remove / reorder).",
-        "description": "#2785: this is the \"edit the members after creation\" operation. The body is\nthe complete desired member list; members not listed are removed, listed\nmembers that are not yet present are added, and priorities are refreshed.\nThe prior implementation only reordered members that already existed and\nreturned 404 for any member not already present, so adding a member through\nan edit form failed.",
+        "description": "Replace the full member set of a virtual repository. This is a full-set replace, not a partial update: the request body is the complete desired member list. Any existing member that is not present in the body is removed. Members present in the body are inserted if missing, or have their priority updated if already present. An empty `members` array removes every member. Warning: sending a partial list in order to reorder priorities will delete the members omitted from that list, so clients must always send the complete member list. These semantics were introduced in PR #2795 (issue #2785) and ratified in issue #2899.",
         "operationId": "update_virtual_members",
         "parameters": [
           {
@@ -16306,6 +16310,60 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Repository not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/storage-gc": {
+      "post": {
+        "tags": [
+          "repositories"
+        ],
+        "summary": "POST /api/v1/repositories/{key}/storage-gc",
+        "description": "Repository-scoped storage garbage collection (web #708): the endpoint the\nweb UI's per-repo storage panel calls with `{dry_run: true}` for its\n\"reclaimable now\" estimate.\n\nSemantics: every candidate sweep of [`StorageGcService::run_gc`] is\nrestricted to rows owned by this repository (soft-deleted artifacts,\nabandoned OCI upload sessions, orphaned upload cleanup keys, and orphaned\nMaven flat-object attribution rows), while the orphan *predicates* stay\ninstance-wide — a storage key is only reclaimed (or counted, on a dry\nrun) when no live artifact, tag, blob, or manifest reference exists for\nit anywhere on the instance. The dry-run estimate is therefore\ndedup-aware: bytes still shared with another repository are never\nreported as reclaimable. On shared (cloud) backends a live run\nhard-deletes every repository's soft-deleted rows for a reclaimed key,\nexactly as the instance-wide pass would. Admin-gated like the\ninstance-wide endpoint.",
+        "operationId": "run_repository_storage_gc",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageGcRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "GC result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageGcResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required, or admin privileges required"
           },
           "404": {
             "description": "Repository not found"
@@ -22004,7 +22062,7 @@
           "health"
         ],
         "summary": "Health check endpoint -- rich status page for dashboards.",
-        "description": "Checks database, storage (real write/read probe), optional services (Trivy,\nOpenSearch), and exposes DB connection pool statistics.",
+        "description": "Checks database, storage (real write/read probe), optional services (Trivy,\nOpenSearch, LDAP), and exposes DB connection pool statistics.\n\nEvery dependency sub-check is served through [`cached_check`], so repeated\npolling of this unauthenticated endpoint cannot drive one probe per request\n(#3127). The database check is left uncached deliberately: it is a single\n`SELECT 1` against an already-established pool connection, which is the\ncheapest thing on the page and the one signal that most needs to be live.",
         "operationId": "health_check",
         "responses": {
           "200": {
@@ -22376,7 +22434,8 @@
         "required": [
           "repository_key",
           "enabled",
-          "min_age_days"
+          "min_age_days",
+          "mode"
         ],
         "properties": {
           "enabled": {
@@ -22385,6 +22444,10 @@
           "min_age_days": {
             "type": "integer",
             "format": "int32"
+          },
+          "mode": {
+            "type": "string",
+            "description": "Age-source mode: `upstream_publish_time` or `first_seen` (#2264)."
           },
           "repository_key": {
             "type": "string"
@@ -26913,53 +26976,6 @@
           }
         }
       },
-      "CreatedPermissionRow": {
-        "type": "object",
-        "required": [
-          "id",
-          "principal_type",
-          "principal_id",
-          "target_type",
-          "target_id",
-          "actions",
-          "created_at",
-          "updated_at"
-        ],
-        "properties": {
-          "actions": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "principal_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "principal_type": {
-            "type": "string"
-          },
-          "target_id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "target_type": {
-            "type": "string"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
       "CurationCreateRuleRequest": {
         "type": "object",
         "required": [
@@ -29432,7 +29448,7 @@
       },
       "GrowthSummary": {
         "type": "object",
-        "description": "Growth summary for a time range.",
+        "description": "Growth summary for a time range.\n\nComputed from `storage_metrics` daily snapshots. **Accounting-basis note\n(#3249):** snapshots taken before the #3134/#3249 fix summed\n`artifacts.size_bytes` only, missing OCI layer/config blob bytes\n(`oci_blobs`) and proxy-cached bytes (`proxy_cache_artifacts`) while\ncounting legacy backfilled `proxy-cache/%` rows. Those historical rows are\ndeliberately left as recorded — the source tables hold no history, so past\nvalues cannot be recomputed, only fabricated. A growth series that spans\nthe fix date therefore shows a one-day upward step in\n`storage_bytes_start/end` / `storage_growth_bytes` /\n`storage_growth_percent` when the corrected accounting first lands; it is\na measurement correction, not real growth.",
         "required": [
           "period_start",
           "period_end",
@@ -34797,7 +34813,8 @@
         ],
         "properties": {
           "block_on_policy_violation": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Persisted and returned, but not currently consulted by any enforcement\ngate — blocking is configured via scan policies instead (#3144/#3246)."
           },
           "created_at": {
             "type": "string",
@@ -34825,7 +34842,8 @@
             "type": "boolean"
           },
           "severity_threshold": {
-            "type": "string"
+            "type": "string",
+            "description": "Persisted and returned, but not currently consulted by any enforcement\ngate (#3243)."
           },
           "updated_at": {
             "type": "string",
@@ -35977,7 +35995,8 @@
           },
           "total_artifacts": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Rows in `artifacts` (for OCI repositories that is manifests only —\nlayer/config blobs are content-addressed objects, not artifacts), the\nsame deliberate decision as the dashboard's\n`SystemStats::total_artifacts` (#3134). Unlike the byte total, this\ncount still includes legacy backfilled `proxy-cache/%` rows."
           },
           "total_downloads": {
             "type": "integer",
@@ -35989,7 +36008,8 @@
           },
           "total_storage_bytes": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "All stored bytes at snapshot time, summed from\n`repository_usage_ledger` (`hosted_bytes + proxy_bytes + oci_bytes`) —\nthe same source as the dashboard `total_storage_bytes` and quota\nadmission (#3134/#3249), so the analytics series is consistent with\nboth by construction. Includes OCI layer/config blob bytes\n(`oci_blobs`) and proxy-cached bytes (`proxy_cache_artifacts`);\nexcludes legacy backfilled `proxy-cache/%` `artifacts` rows (their\nbytes are represented by the proxy-cache catalog instead). This is the\nLOGICAL figure: a blob cross-repo-mounted into N repositories counts\nonce per repository, matching the per-repo storage column and quota."
           },
           "total_users": {
             "type": "integer",
@@ -36490,7 +36510,9 @@
           "total_downloads",
           "total_users",
           "active_peers",
-          "pending_sync_tasks"
+          "pending_sync_tasks",
+          "proxy_artifact_count",
+          "proxy_storage_bytes"
         ],
         "properties": {
           "active_peers": {
@@ -36501,9 +36523,19 @@
             "type": "integer",
             "format": "int64"
           },
-          "total_artifacts": {
+          "proxy_artifact_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Proxy-cached (pull-through) objects, tracked in `proxy_cache_artifacts`\nrather than `artifacts`. Since #3134 the byte figure is a breakdown of\n`total_storage_bytes` (do not add the two)."
+          },
+          "proxy_storage_bytes": {
             "type": "integer",
             "format": "int64"
+          },
+          "total_artifacts": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Rows in `artifacts` (for OCI repositories that is manifests only —\nlayer/config blobs are content-addressed objects, not artifacts).\nUnlike the byte total, this count still includes legacy backfilled\n`proxy-cache/%` rows."
           },
           "total_downloads": {
             "type": "integer",
@@ -36515,7 +36547,8 @@
           },
           "total_storage_bytes": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "All stored bytes, summed from `repository_usage_ledger`\n(`hosted_bytes + proxy_bytes + oci_bytes`) — the same source the\nper-repository `storage_used_bytes` figures are read from, so the\ndashboard total is consistent with the per-repo column by\nconstruction (#3134). Includes OCI layer/config blob bytes\n(`oci_blobs`) and proxy-cached bytes; `proxy_storage_bytes` below is\na *breakdown* of this total, not a disjoint bucket."
           },
           "total_users": {
             "type": "integer",
@@ -37088,6 +37121,13 @@
           "min_age_days": {
             "type": "integer",
             "format": "int32"
+          },
+          "mode": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Age-source mode. Omitted = keep the repository's current mode, so\npre-mode clients that PUT `{enabled, min_age_days}` stay valid."
           }
         }
       },
@@ -38173,6 +38213,7 @@
       },
       "UpdateVirtualMembersRequest": {
         "type": "object",
+        "description": "Full-set replace of a virtual repository's members (PR #2795, issue #2785;\nratified in issue #2899).\n\nThis body is the COMPLETE desired member list, not a partial patch. Any\ncurrent member whose key is absent from `members` is removed; keys present\nare inserted or have their priority updated. An empty `members` array\nremoves every member.\n\nWARNING: sending a partial list to reorder priorities deletes the omitted\nmembers. Clients must always send the full member list.",
         "required": [
           "members"
         ],
@@ -38181,7 +38222,8 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VirtualMemberPriority"
-            }
+            },
+            "description": "The complete desired member set. Members not listed here are removed."
           }
         }
       },
@@ -38240,7 +38282,8 @@
             "type": [
               "boolean",
               "null"
-            ]
+            ],
+            "description": "Accepted and persisted, but consulted by no gate — enforcement is the\n`scan_policies` table's job (#3144; disposition tracked in #3246)."
           },
           "proxy_scan_action": {
             "type": [
@@ -38271,7 +38314,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "Accepted and persisted, but consulted by no production gate (#3243)."
           }
         }
       },
@@ -38390,11 +38434,13 @@
         ],
         "properties": {
           "member_key": {
-            "type": "string"
+            "type": "string",
+            "description": "Key of the member repository. Inserted if it is not already a member."
           },
           "priority": {
             "type": "integer",
-            "format": "int32"
+            "format": "int32",
+            "description": "Resolution priority. Lower values are searched first."
           }
         }
       },
@@ -38564,7 +38610,8 @@
           "build_failed",
           "age_gate_queued",
           "age_gate_approved",
-          "age_gate_rejected"
+          "age_gate_rejected",
+          "age_gate_reopened"
         ]
       },
       "WebhookListResponse": {
