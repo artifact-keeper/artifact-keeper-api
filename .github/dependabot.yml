@@ -1,0 +1,53 @@
+# Dependency monitoring for artifact-keeper-api.
+#
+# This repository publishes to two public registries on every `v*` tag --
+# `@artifact-keeper/sdk` to npm and `artifact-keeper-client` to PyPI -- and
+# had no dependency monitoring of any kind. Anything vulnerable in the
+# TypeScript SDK's dependency tree ships to npm consumers with our name on it.
+#
+# Modelled on the backend's .github/dependabot.yml, minus the parts that do
+# not apply here: the backend's cargo entry and its RustCrypto/digest ignore
+# block are backend-workspace-specific, and there is no committed Cargo.toml,
+# Dockerfile, or Gemfile in this repository.
+#
+# `reviewers:` is deliberately not set. The backend config points at
+# `artifact-keeper/maintainers`, which is not a team in this org (the org has
+# android, backend, documentation, infrastructure, ios, platform-sdk,
+# plugin-ecosystem, web-ui), so copying it here would silently request review
+# from nobody. Labels are left to Dependabot's own `dependencies` default
+# rather than naming custom labels that do not exist in this repository yet --
+# Dependabot skips labels it cannot find.
+#
+# The Python SDK has no committed manifest: sdk/python/ holds only an
+# openapi-generator config, and setup.py is generated inside the publish job.
+# There is nothing for a `pip` entry to read, so adding one would produce a
+# permanently silent ecosystem. Worth revisiting if the generated package ever
+# gains committed, pinned dependencies.
+version: 2
+updates:
+  # Workflow actions. generate.yml runs with `id-token: write` against both the
+  # npm and PyPI publishing identities, so a compromised action here is a
+  # supply-chain compromise of both published SDKs.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+
+  # The TypeScript SDK published to npm as @artifact-keeper/sdk. These are real
+  # runtime/build dependencies of a package other people install.
+  - package-ecosystem: "npm"
+    directory: "/sdk/typescript"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
+
+  # The Swift SDK sources (swift-openapi-generator / -runtime / -urlsession).
+  - package-ecosystem: "swift"
+    directory: "/sdk/swift"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "chore"
