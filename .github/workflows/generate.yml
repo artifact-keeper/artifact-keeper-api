@@ -328,7 +328,7 @@ jobs:
       - name: Fix permissions
         run: sudo chown -R "$USER" sdk/python/generated
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
