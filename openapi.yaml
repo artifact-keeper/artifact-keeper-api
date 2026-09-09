@@ -25,7 +25,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.7.3
+  version: 1.9.0
 servers:
 - url: /
   description: Current server
@@ -693,6 +693,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RestoreResponse'
+        '400':
+          description: Archive integrity could not be established, or an unsupported option was supplied
         '404':
           description: Backup not found
         '500':
@@ -1755,6 +1757,83 @@ paths:
                   $ref: '#/components/schemas/ServiceHealthEntry'
       security:
       - bearer_auth: []
+  /api/v1/admin/proxy-scan-verdicts/{digest}:
+    get:
+      tags:
+      - admin
+      summary: Inspect the stored proxy scan verdict(s) for a content digest (#3244).
+      description: 'The verdict store is content-addressed and GLOBAL across repositories and
+
+        tenants (the same bytes are the same CVEs), which is why this surface is
+
+        instance-admin only: no repo-scoped principal should read — let alone
+
+        clear — a lever that spans every repo.'
+      operationId: get_proxy_scan_verdicts
+      parameters:
+      - name: digest
+        in: path
+        description: 'Content digest: `sha256:<64 hex>` or bare 64-hex'
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Stored verdict rows for the digest
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyScanVerdictListResponse'
+        '400':
+          description: Malformed digest
+        '403':
+          description: Admin privileges required
+        '404':
+          description: No stored verdict for this digest
+      security:
+      - bearer_auth: []
+    delete:
+      tags:
+      - admin
+      summary: 'Invalidate (delete) the stored proxy scan verdict(s) for a content digest
+
+        (#3244).'
+      description: 'This forces RE-ASSESSMENT on the next pull — it is NOT a waiver. The next
+
+        pull of the digest re-scans (inline under `fail_closed`, asynchronously
+
+        under `fail_open`) and records a fresh verdict; a still-flagged image is
+
+        immediately re-blocked. Only a stale verdict (advisory withdrawn, CVE-DB
+
+        corrected) is durably cleared. Deleting by digest un-blocks that content
+
+        EVERYWHERE (the store is global by design), hence instance-admin only.
+
+        The deletion is audited with the removed rows'' verdict summary.'
+      operationId: delete_proxy_scan_verdicts
+      parameters:
+      - name: digest
+        in: path
+        description: 'Content digest: `sha256:<64 hex>` or bare 64-hex'
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Deleted verdict rows (re-assessment forced on next pull)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyScanVerdictListResponse'
+        '400':
+          description: Malformed digest
+        '403':
+          description: Admin privileges required
+        '404':
+          description: No stored verdict for this digest
+      security:
+      - bearer_auth: []
   /api/v1/admin/quality-checks:
     get:
       tags:
@@ -2188,6 +2267,70 @@ paths:
                 $ref: '#/components/schemas/SystemSettings'
         '500':
           description: Internal server error
+      security:
+      - bearer_auth: []
+  /api/v1/admin/settings/totp-policy:
+    get:
+      tags:
+      - admin
+      summary: Read the system-wide 2FA enforcement policy.
+      operationId: get_totp_policy
+      responses:
+        '200':
+          description: Current 2FA enforcement policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpPolicyResponse'
+        '403':
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - admin
+      summary: Change the system-wide 2FA enforcement policy.
+      description: 'Tightening the policy requires the calling administrator to have TOTP
+
+        enabled — that is the lockout-safety guard: it guarantees at least one
+
+        administrator whose (pre-existing, already-working) sign-in path survives the
+
+        change. Loosening is never refused. A policy change does **not** invalidate
+
+        existing sessions or refresh tokens; it takes effect at the next interactive
+
+        password login, so the administrator making the change keeps their session.'
+      operationId: update_totp_policy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTotpPolicyRequest'
+        required: true
+      responses:
+        '200':
+          description: Policy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpPolicyResponse'
+        '403':
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 'Refused: policy pinned by TOTP_POLICY, or the calling admin has not enrolled in TOTP'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
   /api/v1/admin/smtp/test:
@@ -3781,7 +3924,8 @@ paths:
           - 'null'
       responses:
         '307':
-          description: Redirect to frontend with exchange code
+          description: Redirect to frontend with exchange code, or to /callback?silent_denied=1 when a prompt=none probe found
+            no IdP session
         '400':
           description: Invalid callback parameters
           content:
@@ -3808,9 +3952,31 @@ paths:
         schema:
           type: string
           format: uuid
+      - name: prompt
+        in: query
+        description: 'Optional OIDC `prompt` value forwarded to the IdP''s authorization
+
+          endpoint. Only `none` is accepted (silent check-sso): the web UI uses
+
+          it to probe for an existing IdP session without ever rendering the
+
+          IdP''s login page. Any other value is rejected so the login redirect
+
+          cannot be steered into unexpected IdP behaviours.'
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
       responses:
         '307':
           description: Redirect to OIDC authorization endpoint
+        '400':
+          description: Unsupported prompt value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '404':
           description: OIDC provider not found
           content:
@@ -4009,6 +4175,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: The 2FA enforcement policy requires TOTP for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
   /api/v1/auth/totp/enable:
@@ -4038,6 +4210,68 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
+  /api/v1/auth/totp/enroll/complete:
+    post:
+      tags:
+      - auth
+      summary: Complete policy-required TOTP enrollment and receive a session.
+      operationId: enroll_complete
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpEnrollCompleteRequest'
+        required: true
+      responses:
+        '200':
+          description: TOTP enrolled; session and backup codes returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpEnrollCompleteResponse'
+        '400':
+          description: TOTP is already enabled, or /enroll/setup was not called first
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid code, or invalid/expired/already-used enrollment ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/auth/totp/enroll/setup:
+    post:
+      tags:
+      - auth
+      summary: Begin policy-required TOTP enrollment using a login-issued enrollment ticket.
+      operationId: enroll_setup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotpEnrollSetupRequest'
+        required: true
+      responses:
+        '200':
+          description: TOTP secret and QR code URL for enrollment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TotpSetupResponse'
+        '400':
+          description: TOTP is already enabled for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired enrollment ticket
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
   /api/v1/auth/totp/setup:
     post:
       tags:
@@ -9517,6 +9751,69 @@ paths:
           description: Redirect to S3 presigned URL
         '404':
           description: Artifact not found
+  /api/v1/repositories/{key}/egress-proxy:
+    get:
+      tags:
+      - repositories
+      summary: Read the outbound egress proxy configuration of a remote repository
+      operationId: get_egress_proxy
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          description: Egress proxy configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgressProxyResponse'
+        '401':
+          description: Authentication required
+        '403':
+          description: Repository admin required
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
+    put:
+      tags:
+      - repositories
+      summary: Configure the outbound egress proxy for a remote repository
+      operationId: set_egress_proxy
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EgressProxyRequest'
+        required: true
+      responses:
+        '200':
+          description: Egress proxy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EgressProxyResponse'
+        '400':
+          description: Invalid mode or proxy URL
+        '401':
+          description: Authentication required
+        '403':
+          description: Repository admin required
+        '404':
+          description: Repository not found
+      security:
+      - bearer_auth: []
   /api/v1/repositories/{key}/email-subscriptions:
     get:
       tags:
@@ -10157,6 +10454,131 @@ paths:
                 $ref: '#/components/schemas/ScanConfigResponse'
         '404':
           description: Repository not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/security/proxy-scans:
+    get:
+      tags:
+      - security
+      operationId: get_repo_proxy_scans
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      - name: path
+        in: query
+        description: 'Cache path of a single entry, e.g.
+
+          `simple/click/click-8.0.0-py3-none-any.whl`. When set, the response
+
+          carries just that entry and omits the repository summary.'
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: page
+        in: query
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      - name: per_page
+        in: query
+        required: false
+        schema:
+          type:
+          - integer
+          - 'null'
+          format: int64
+      responses:
+        '200':
+          description: Proxy scan verdicts for a repository
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyScansResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Repository or path not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      security:
+      - bearer_auth: []
+  /api/v1/repositories/{key}/security/proxy-scans/rescan:
+    post:
+      tags:
+      - security
+      summary: 'Rescan bytes already in the proxy cache, recording the verdict, package
+
+        inventory and per-CVE detail exactly as an inline gated pull would (#3396).'
+      operationId: rescan_proxy_cached_path
+      parameters:
+      - name: key
+        in: path
+        description: Repository key
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProxyRescanRequest'
+        required: true
+      responses:
+        '200':
+          description: Rescan completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProxyRescanResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Repository or path not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Cached object is above the inline scan cap
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: 'Rescan cooldown in effect: `RESCAN_THROTTLED`, with `Retry-After` naming the remaining cooldown in
+            whole seconds.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: 'Rescan could not produce a verdict: `NO_SCANNER_CONFIGURED` (no scanner is configured for this instance),
+            `RESCAN_SCAN_FAILED` (the scan ran and errored), or `RESCAN_BUDGET_EXCEEDED` (the scan did not finish inside its
+            budget). `Retry-After` is set only when cooldown time actually remains. The stored verdict is unchanged in every
+            case.'
           content:
             application/json:
               schema:
@@ -13152,6 +13574,29 @@ paths:
           type:
           - boolean
           - 'null'
+      - name: is_service_account
+        in: query
+        description: 'Filter on the service-account discriminator (#3634).
+
+
+          Service accounts are rows in `users`, so an unfiltered listing mixes
+
+          them in with people. A client building a principal picker for
+
+          `POST /api/v1/permissions` must be able to exclude them: that endpoint''s
+
+          `validate_principal` requires `principal_type = "service_account"` for
+
+          such a row and rejects it as `"user"`, so offering one under `user` is a
+
+          guaranteed 400. `None` keeps the historical unfiltered behavior, which
+
+          the audit actor filter and the group member picker both want.'
+        required: false
+        schema:
+          type:
+          - boolean
+          - 'null'
       - name: page
         in: query
         required: false
@@ -13489,7 +13934,25 @@ paths:
     get:
       tags:
       - users
-      summary: Get user roles
+      summary: Get user roles.
+      description: 'Lists the `user_roles` rows [`assign_role`] writes, together with each
+
+        role''s `permissions` array. Those capabilities describe the ROLE, not this
+
+        user''s effective access: `user_roles` is identity/SSO-mapping metadata and
+
+        is read by no authorization gate (#3387 / #3522 — see [`assign_role`] for
+
+        the full split between the two role stores). A user can appear here with
+
+        `developer` / `["read","write"]` and still have access to no repository.
+
+
+        Effective repository access is the union of `role_assignments` and the
+
+        fine-grained `permissions` table; `GET /api/v1/permissions` lists the
+
+        latter.'
       operationId: get_user_roles
       parameters:
       - name: id
@@ -13501,7 +13964,9 @@ paths:
           format: uuid
       responses:
         '200':
-          description: List of user roles
+          description: 'List of user roles. The `permissions` array describes the ROLE''s capabilities, not this user''s effective
+            repository access: roles listed here are identity/SSO-mapping metadata and grant no repository access on their
+            own (#3387 / #3522).'
           content:
             application/json:
               schema:
@@ -13511,7 +13976,49 @@ paths:
     post:
       tags:
       - users
-      summary: Assign role to user
+      summary: Assign role to user.
+      description: '**This does not by itself grant access to any repository (#3387 / #3522).**
+
+
+        There are two role stores and they are not interchangeable. This endpoint
+
+        writes `user_roles`, which is identity metadata: it is listed back by
+
+        `GET /api/v1/users/{id}/roles`, it is what SSO role mapping rebuilds on
+
+        every federated login (`AuthService::apply_role_mapping`), and it is read by
+
+        no authorization gate. Repository authorization resolves
+
+        `role_assignments` (creator auto-grant, `repository-owner`, the rows
+
+        migration 172 wrote) and the fine-grained `permissions` table — never this
+
+        one.
+
+
+        To give a principal access to repositories, write a fine-grained grant with
+
+        `POST /api/v1/permissions`. That endpoint takes `user`, `service_account`
+
+        and `group` principals against `repository` or `project` targets, and IS
+
+        resolved by every gate (`check_repository_action`, `query_actions`,
+
+        `permissions_grant_exists_for`).
+
+
+        Wiring `user_roles` into the gates is deliberately NOT done here: the table
+
+        carries no repository scope, so every row is global, and the built-in
+
+        `developer` role carries `read` + `write` — making it live would retroactively
+
+        hand every existing row write access to every repository in the instance,
+
+        and would turn an IdP role claim into a global write grant. That decision is
+
+        tracked in #3522 rather than taken as a side effect of a bug fix.'
       operationId: assign_role
       parameters:
       - name: id
@@ -13529,7 +14036,8 @@ paths:
         required: true
       responses:
         '200':
-          description: Role assigned successfully
+          description: 'Role assigned successfully. NOTE: roles assigned here are identity/SSO-mapping metadata and do NOT
+            by themselves grant access to any repository — use POST /api/v1/permissions for that (#3387 / #3522).'
       security:
       - bearer_auth: []
   /api/v1/users/{id}/roles/{role_id}:
@@ -14198,7 +14706,7 @@ components:
           format: uuid
         principal_type:
           type: string
-          description: '"user" or "group".'
+          description: '"user", "service_account" or "group".'
     AddVirtualMemberRequest:
       type: object
       required:
@@ -14220,6 +14728,7 @@ components:
       - auth_provider
       - is_active
       - is_admin
+      - is_service_account
       - must_change_password
       - created_at
       properties:
@@ -14241,6 +14750,14 @@ components:
           type: boolean
         is_admin:
           type: boolean
+        is_service_account:
+          type: boolean
+          description: 'Whether this row is a service account rather than a person (#3634).
+
+
+            `list_users` already read this column; it was dropped here, leaving
+
+            clients no way to tell the two kinds of principal apart.'
         last_login_at:
           type:
           - string
@@ -14908,6 +15425,37 @@ components:
         size_bytes:
           type: integer
           format: int64
+        uploaded_by:
+          type:
+          - string
+          - 'null'
+          format: uuid
+          description: 'Id of the user that uploaded this artifact (#3271), mirroring
+
+            [`ArtifactVersionResponse::uploaded_by`] (#2397). Always serialized —
+
+            `null` for anonymous/unknown uploads and for proxy-cached objects,
+
+            which have no `artifacts` row — so the UI can rely on the key being
+
+            present.'
+        uploaded_by_username:
+          type:
+          - string
+          - 'null'
+          description: 'Display name for [`Self::uploaded_by`], resolved server-side so the UI
+
+            does not have to follow a bare UUID with an admin-only user lookup
+
+            (#3271). `null` whenever `uploaded_by` is `null`, and also when the
+
+            referenced user row no longer exists (a deleted account leaves the id
+
+            on the artifact). Populated by the listing and per-artifact metadata
+
+            endpoints; other responses that build an `ArtifactResponse` leave it
+
+            unresolved.'
         version:
           type:
           - string
@@ -15179,7 +15727,32 @@ components:
       - ldap_enabled
       - sso_enabled
       - local_login_enabled
+      - admin_break_glass_enabled
+      - silent_sso_enabled
       properties:
+        admin_break_glass_enabled:
+          type: boolean
+          description: 'Whether the verified-admin break-glass local login path is available
+
+            (issue #2571). Unlike `local_login_enabled` — which only advertises
+
+            the full local form on explicit `ALLOW_LOCAL_ADMIN_LOGIN=true` opt-in —
+
+            this reflects the default #443 break-glass: with SSO enabled it is
+
+            `true` unless the operator opted into strict SSO-only via
+
+            `SSO_DISABLE_ADMIN_BREAK_GLASS`. The login UI uses it to render a
+
+            discoverable "Sign in with admin" affordance next to the SSO buttons
+
+            instead of requiring the undocumented `?fallback=local` parameter.
+
+            Display-only: the login endpoint independently enforces the same
+
+            policy (`api::handlers::auth::local_login_gate`), so this flag never
+
+            grants access by itself.'
         ldap_enabled:
           type: boolean
           description: Whether an LDAP directory is configured.
@@ -15205,6 +15778,21 @@ components:
         oidc_enabled:
           type: boolean
           description: Whether an OIDC provider is configured.
+        silent_sso_enabled:
+          type: boolean
+          description: 'Whether the web UI should attempt silent SSO auto-login (an invisible
+
+            OIDC `prompt=none` check-sso probe) when an OIDC provider is enabled.
+
+            Kill switch: `OIDC_SILENT_SSO=false` (default `true`). Display-only:
+
+            the flag only tells the frontend whether to *initiate* the silent
+
+            attempt; the SSO endpoints enforce all authentication policy
+
+            themselves, and anonymous visitors are never redirected to a visible
+
+            IdP login page by the silent flow.'
         sso_enabled:
           type: boolean
           description: 'Whether SAML SSO is configured (derived from the SSO admin settings in the DB,
@@ -15318,6 +15906,7 @@ components:
       required:
       - target
       - summary
+      - proxy_exposure
       - affected_repos
       - downloaders
       - total_downloaders
@@ -15344,8 +15933,14 @@ components:
           type: integer
           format: int32
           minimum: 0
+        proxy_exposure:
+          $ref: '#/components/schemas/ProxyBlastRadius'
+          description: Exposure through proxy-cached content (#3397).
         summary:
           $ref: '#/components/schemas/BlastRadiusSummary'
+          description: '**Hosted content only.** Every field here is artifact-keyed; see
+
+            [`ProxyBlastRadius`] for proxy-cached exposure.'
         target:
           $ref: '#/components/schemas/BlastRadiusTargetInfo'
         total_downloaders:
@@ -16945,6 +17540,15 @@ components:
       - client_id
       - client_secret
       properties:
+        admin_group:
+          type:
+          - string
+          - 'null'
+          description: 'IdP group whose members are granted the admin role on login.
+
+            Persisted as `attribute_mapping.admin_group`, the key the OIDC
+
+            callback reads for admin elevation (#3420).'
         allow_legacy_rsa_keys:
           type:
           - boolean
@@ -17866,8 +18470,40 @@ components:
       - status
       - metadata
       - first_seen_at
+      - attestation_state
       properties:
         architecture:
+          type:
+          - string
+          - 'null'
+        attestation_error:
+          type:
+          - string
+          - 'null'
+        attestation_identity:
+          type:
+          - string
+          - 'null'
+        attestation_issuer:
+          type:
+          - string
+          - 'null'
+        attestation_owner:
+          type:
+          - string
+          - 'null'
+        attestation_state:
+          type: string
+          description: 'Attestation verification record (#2955, surfaced by #3230):
+
+            `unverified` | `verified` | `failed`, with the certificate-bound identity
+
+            on success and the specific failing check otherwise. Without these an
+
+            operator cannot answer "which packages verified, and against which
+
+            certificate identity" without querying the database directly.'
+        attestation_verified_at:
           type:
           - string
           - 'null'
@@ -19121,6 +19757,75 @@ components:
           type: string
         vulnId:
           type: string
+    EgressProxyRequest:
+      type: object
+      description: 'Per-repository egress proxy settings (#2469, #2811).
+
+
+        `proxy_url` is **write-only**: it is encrypted at rest and never returned.
+
+        [`EgressProxyResponse`] echoes a redacted form (`http://***@proxy:3128`)
+
+        so an operator can confirm the host and port without recovering the
+
+        credentials, exactly as `upstream_auth_configured` does for upstream
+
+        credentials.'
+      required:
+      - mode
+      properties:
+        mode:
+          type: string
+          description: '`inherit` (follow the process `HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`
+
+            environment — the default), `direct` (never proxy this repository, even
+
+            when the environment sets one), or `explicit` (use `proxy_url`, ignoring
+
+            the environment entirely).'
+        no_proxy:
+          type:
+          - string
+          - 'null'
+          description: 'Comma-separated hosts / domain suffixes / CIDRs that bypass the proxy
+
+            for this repository. Only meaningful when `mode` is `explicit`.'
+        proxy_url:
+          type:
+          - string
+          - 'null'
+          description: 'Proxy endpoint, `scheme://host[:port]`, http or https. May embed
+
+            `user:pass@` credentials. Required when `mode` is `explicit`.
+
+            Write-only, never returned in responses.'
+    EgressProxyResponse:
+      type: object
+      description: Read-back of a repository's egress-proxy settings. Carries no secret.
+      required:
+      - mode
+      - proxy_credentials_configured
+      properties:
+        mode:
+          type: string
+          description: '`inherit`, `direct` or `explicit`.'
+        no_proxy:
+          type:
+          - string
+          - 'null'
+          description: The configured bypass list, if any.
+        proxy_credentials_configured:
+          type: boolean
+          description: 'Whether the configured proxy URL carries credentials. The credentials
+
+            themselves are never returned.'
+        proxy_url:
+          type:
+          - string
+          - 'null'
+          description: 'The configured proxy with any credentials replaced by `***`. `None`
+
+            unless `mode` is `explicit`.'
     EmailSubscriptionListResponse:
       type: object
       required:
@@ -20532,6 +21237,26 @@ components:
           type:
           - boolean
           - 'null'
+        is_service_account:
+          type:
+          - boolean
+          - 'null'
+          description: 'Filter on the service-account discriminator (#3634).
+
+
+            Service accounts are rows in `users`, so an unfiltered listing mixes
+
+            them in with people. A client building a principal picker for
+
+            `POST /api/v1/permissions` must be able to exclude them: that endpoint''s
+
+            `validate_principal` requires `principal_type = "service_account"` for
+
+            such a row and rejects it as `"user"`, so offering one under `user` is a
+
+            guaranteed 400. `None` keeps the historical unfiltered behavior, which
+
+            the audit actor filter and the group member picker both want.'
         page:
           type:
           - integer
@@ -20587,6 +21312,26 @@ components:
           type: string
         token_type:
           type: string
+        totp_enrollment_required:
+          type:
+          - boolean
+          - 'null'
+          description: 'Set when the 2FA enforcement policy (#2805) requires this user to enrol
+
+            in TOTP before a session can be issued. `totp_token` then carries an
+
+            *enrollment ticket* rather than a verification ticket: redeem it at
+
+            `POST /auth/totp/enroll/setup` followed by
+
+            `POST /auth/totp/enroll/complete`, which returns the real session.
+
+
+            A client that does not understand this field sees no `access_token` and
+
+            must not treat the response as a successful login. It is never set at the
+
+            same time as `totp_required`.'
         totp_required:
           type:
           - boolean
@@ -22439,6 +23184,426 @@ components:
         updated_at:
           type: string
           format: date-time
+    ProxyBlastRadius:
+      type: object
+      description: 'Exposure through proxy-cached content, reported alongside the hosted
+
+        numbers (#3397).
+
+
+        `summary` above is computed over `scan_findings` joined to `artifacts` and
+
+        `download_statistics` — all three artifact-keyed. Proxy-cached bytes have no
+
+        `artifacts` row by design, and their downloads land in
+
+        `proxy_download_statistics` keyed by `proxy_cache_id`, so the hosted numbers
+
+        were not merely incomplete for proxy content: they were structurally
+
+        incapable of being non-zero for it. A confident zero to a security question
+
+        is worse than an error, so this block exists even when it is all zeros — an
+
+        operator can then see that proxy content WAS searched.
+
+
+        Attribution runs through `proxy_scan_findings` (#3395). Before that table
+
+        existed there was no per-CVE detail for proxy content to attribute a
+
+        download to, which is why #3397 depended on #3395.'
+      required:
+      - coverage
+      - affected_digest_count
+      - affected_repo_count
+      - download_count
+      - downloader_user_count
+      - anonymous_download_present
+      properties:
+        affected_digest_count:
+          type: integer
+          format: int64
+          description: Distinct proxy-cached digests carrying this CVE.
+        affected_repo_count:
+          type: integer
+          format: int64
+          description: Repositories whose proxy cache holds one of those digests.
+        anonymous_download_present:
+          type: boolean
+          description: Whether any such pull was anonymous.
+        coverage:
+          type: string
+          description: '`included` | `not_applicable` — see the constants. Never omit this:
+
+            it is what tells a reader whether a zero below means "searched, nothing
+
+            found" or "not searched".'
+        download_count:
+          type: integer
+          format: int64
+          description: Proxy download events of affected digests in the window.
+        downloader_user_count:
+          type: integer
+          format: int64
+          description: Distinct authenticated users who pulled one.
+    ProxyFinding:
+      type: object
+      description: 'A CVE-identified finding retained from an inline proxy scan so it can be
+
+        persisted into `proxy_scan_findings` and answered back to an operator
+
+        asking "which CVE blocked my build?" (#3395).
+
+
+        Deliberately narrower than [`RawFinding`]: only the columns the digest-keyed
+
+        table stores. `description`, `source` and `source_url` are dropped because
+
+        they are scanner prose that would bloat a row written on every proxied
+
+        download, and because none of them identify the vulnerability.
+
+
+        `cve_id` is non-optional here while it is optional on [`RawFinding`]: a
+
+        finding a scanner could not attach a CVE id to has nothing to look up, and
+
+        the table''s identity key is the CVE. Such findings are dropped on the way
+
+        in — they still count toward `findings_count` on the verdict, which is
+
+        computed from the raw list before this projection runs.'
+      required:
+      - cve_id
+      - severity
+      properties:
+        cve_id:
+          type: string
+          description: Canonical vulnerability id, e.g. `CVE-2021-44228` or `GHSA-...`.
+        fixed_version:
+          type:
+          - string
+          - 'null'
+          description: 'Version that resolves it, when the scanner reported one — the single
+
+            most actionable field for an operator whose build was just blocked.'
+        package_name:
+          type:
+          - string
+          - 'null'
+          description: Component the vulnerability was matched against.
+        package_version:
+          type:
+          - string
+          - 'null'
+        severity:
+          type: string
+          description: 'Lowercase severity token (`critical`/`high`/`medium`/`low`/`info`),
+
+            matching the tokens stored on `proxy_scan_results.max_severity`.'
+        title:
+          type:
+          - string
+          - 'null'
+    ProxyRescanRequest:
+      type: object
+      required:
+      - path
+      properties:
+        path:
+          type: string
+          description: 'Cache path within this repository, e.g.
+
+            `simple/click/click-8.0.0-py3-none-any.whl`. Path-keyed for the same
+
+            cross-tenant reason the read endpoint is.'
+    ProxyRescanResponse:
+      type: object
+      required:
+      - repository_key
+      - path
+      - digest
+      - state
+      - findings_count
+      - critical_count
+      - high_count
+      - medium_count
+      - low_count
+      - package_count
+      - findings
+      properties:
+        critical_count:
+          type: integer
+          format: int32
+        digest:
+          type: string
+        findings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyFinding'
+          description: Per-CVE detail from this run, bounded to [`MAX_PROXY_FINDINGS`].
+        findings_count:
+          type: integer
+          format: int32
+        high_count:
+          type: integer
+          format: int32
+        low_count:
+          type: integer
+          format: int32
+        max_severity:
+          type:
+          - string
+          - 'null'
+        medium_count:
+          type: integer
+          format: int32
+        package_count:
+          type: integer
+          description: 'Components cataloged and persisted, i.e. how much SBOM this rescan
+
+            produced. Zero means the scanner reported no inventory for these bytes.'
+          minimum: 0
+        path:
+          type: string
+        repository_key:
+          type: string
+        state:
+          type: string
+          description: '`clean` | `vulnerable` -- the verdict just recorded.'
+    ProxyScanEntry:
+      type: object
+      required:
+      - path
+      - state
+      - cached_at
+      - size_bytes
+      properties:
+        cached_at:
+          type: string
+          format: date-time
+        critical_count:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        digest:
+          type:
+          - string
+          - 'null'
+          description: SHA-256 of the cached bytes; NULL while the row is `pending_ingest`.
+        findings:
+          type:
+          - array
+          - 'null'
+          items:
+            $ref: '#/components/schemas/ProxyFinding'
+          description: 'The CVEs behind the counts (#3395), most severe first and bounded to
+
+            [`MAX_PROXY_FINDINGS`].
+
+
+            Populated ONLY for a single-path (`?path=`) read, and only for a
+
+            `vulnerable` entry. Two reasons it is absent from the paged listing:
+
+            one query per row would make the list an N+1, and the listing is a
+
+            per-repository overview whose job is to point at the entry to open.
+
+
+            `None` (omitted) means "not requested at this granularity"; an empty
+
+            vector means "requested, and this digest has no recorded detail" --
+
+            which is the real state for anything cached before #3395 shipped. The
+
+            two must stay distinguishable or a pre-#3395 artifact renders as having
+
+            no CVEs, which reads as clean.'
+        findings_count:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        high_count:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        low_count:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        max_severity:
+          type:
+          - string
+          - 'null'
+        medium_count:
+          type:
+          - integer
+          - 'null'
+          format: int32
+        not_scanned_reason:
+          type:
+          - string
+          - 'null'
+          description: Set only when `state` is `not_scanned`.
+        path:
+          type: string
+        scanned_at:
+          type:
+          - string
+          - 'null'
+          format: date-time
+          description: Floored at this repository's own `cached_at` -- see the module note.
+        size_bytes:
+          type: integer
+          format: int64
+        state:
+          type: string
+          description: '`clean` | `vulnerable` | `not_scanned` | `pending_ingest`.'
+    ProxyScanSummary:
+      type: object
+      description: 'Per-state counts over **distinct digests**, not paths: one repository can
+
+        cache the same digest at many paths, and the UI label must say so.'
+      required:
+      - clean
+      - vulnerable
+      - not_scanned
+      - pending_ingest
+      - total_digests
+      properties:
+        clean:
+          type: integer
+          format: int64
+        not_scanned:
+          type: integer
+          format: int64
+        pending_ingest:
+          type: integer
+          format: int64
+          description: 'Catalog rows whose `checksum_sha256` is still NULL. Counted as PATHS
+
+            (they have no digest to dedupe on) and excluded from every other count.'
+        total_digests:
+          type: integer
+          format: int64
+          description: 'Distinct digests cached by this repository. Equals
+
+            `clean + vulnerable + not_scanned`.'
+        vulnerable:
+          type: integer
+          format: int64
+    ProxyScanVerdictItem:
+      type: object
+      description: 'One stored `proxy_scan_results` row, as returned by the admin
+
+        inspect/invalidate endpoints (#3244).'
+      required:
+      - checksum_sha256
+      - scan_type
+      - verdict
+      - findings_count
+      - critical_count
+      - high_count
+      - medium_count
+      - low_count
+      - scanned_at
+      properties:
+        checksum_sha256:
+          type: string
+        critical_count:
+          type: integer
+          format: int32
+        findings_count:
+          type: integer
+          format: int32
+        high_count:
+          type: integer
+          format: int32
+        low_count:
+          type: integer
+          format: int32
+        max_severity:
+          type:
+          - string
+          - 'null'
+        medium_count:
+          type: integer
+          format: int32
+        scan_type:
+          type: string
+        scanned_at:
+          type: string
+          format: date-time
+        scanner_version:
+          type:
+          - string
+          - 'null'
+        verdict:
+          type: string
+    ProxyScanVerdictListResponse:
+      type: object
+      description: Response for the admin proxy-scan-verdict endpoints (#3244).
+      required:
+      - digest
+      - verdicts
+      properties:
+        digest:
+          type: string
+          description: The normalized (bare-hex) digest the verdicts are keyed on.
+        verdicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyScanVerdictItem'
+    ProxyScansResponse:
+      type: object
+      required:
+      - repository_key
+      - scan_on_proxy
+      - proxy_scan_action
+      - items
+      - total
+      - page
+      - per_page
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProxyScanEntry'
+        page:
+          type: integer
+          format: int64
+        per_page:
+          type: integer
+          format: int64
+        proxy_scan_action:
+          type: string
+          description: '`fail_open` | `fail_closed`. Lets `not_scanned` be read as "may have
+
+            been served unscanned" versus "was withheld".'
+        repository_key:
+          type: string
+        scan_on_proxy:
+          type: boolean
+          description: 'Enforcement context. Without it `vulnerable` is ambiguous: with
+
+            scanning on it means pulls are blocked; with scanning off it means the
+
+            artifact is served anyway and the verdict was recorded elsewhere.'
+        summary:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/ProxyScanSummary'
+            description: Omitted for a single-path (`?path=`) read.
+        total:
+          type: integer
+          format: int64
+          description: Catalog paths matching the query (paths, not digests).
     PypiTrackRequest:
       type: object
       description: Body for declaring that a locally-owned PyPI project tracks an upstream one.
@@ -23479,6 +24644,24 @@ components:
     RestoreRequest:
       type: object
       properties:
+        allow_unverified_archive:
+          type: boolean
+          description: 'Accept an archive whose integrity cannot be established (#3373).
+
+
+            A restore refuses an archive it cannot check: since #3373 every backup
+
+            records its payload checksum on the `backups` row, outside the archive,
+
+            and the archive''s contents are verified against it before any row is
+
+            ingested. Archives captured before that column existed fall back to the
+
+            checksum in their own manifest; one carrying neither cannot be verified
+
+            at all, and this flag is the deliberate, audited way to restore it
+
+            anyway. It never waives a checksum that is present and does not match.'
         restore_artifacts:
           type:
           - boolean
@@ -23498,6 +24681,7 @@ components:
       - tables_restored
       - artifacts_restored
       - errors
+      - integrity_anchor
       properties:
         artifacts_restored:
           type: integer
@@ -23506,6 +24690,15 @@ components:
           type: array
           items:
             type: string
+        integrity_anchor:
+          type: string
+          description: 'What the archive''s contents were checked against (#3373):
+
+            `recorded` (the digest on the `backups` row, the strong case),
+
+            `manifest` (the archive''s own checksum -- detects corruption, not
+
+            tampering), or `waived` (`allow_unverified_archive` was set).'
         tables_restored:
           type: array
           items:
@@ -23896,9 +25089,13 @@ components:
       properties:
         block_on_policy_violation:
           type: boolean
-          description: 'Persisted and returned, but not currently consulted by any enforcement
+          description: 'Opt-in that makes `severity_threshold` enforced on the proxy/OCI
 
-            gate — blocking is configured via scan policies instead (#3144/#3246).'
+            inline scan gate (#3243/#3246). When false (default), the gate blocks
+
+            on any finding above `info`. Hosted-artifact blocking remains
+
+            configured via scan policies.'
         created_at:
           type: string
           format: date-time
@@ -23921,9 +25118,11 @@ components:
           type: boolean
         severity_threshold:
           type: string
-          description: 'Persisted and returned, but not currently consulted by any enforcement
+          description: 'Severity floor for the inline proxy scan gate; live only when
 
-            gate (#3243).'
+            `block_on_policy_violation` is set (#3243/#3246). Findings at or above
+
+            it block the pull.'
         updated_at:
           type: string
           format: date-time
@@ -24785,6 +25984,20 @@ components:
           type: array
           items:
             type: string
+        maven_flat_objects_gated:
+          type: integer
+          format: int64
+          description: 'Orphaned row-less Maven flat objects this pass identified but left in
+
+            place because the sweep is not opted in (`MAVEN_FLAT_GC_ENABLED`
+
+            unset, #3431). Report-only: these objects and their attribution rows
+
+            were NOT deleted and are not counted in `storage_keys_deleted`. Always
+
+            `0` on a dry run (a dry run deletes nothing anyway) and when the sweep
+
+            is enabled.'
         storage_keys_deleted:
           type: integer
           format: int64
@@ -25525,6 +26738,131 @@ components:
           type: array
           items:
             type: string
+    TotpEnrollCompleteRequest:
+      type: object
+      description: Request body completing forced enrollment.
+      required:
+      - totp_token
+      - code
+      properties:
+        code:
+          type: string
+          description: The current 6-digit code from the authenticator that scanned the secret.
+        totp_token:
+          type: string
+          description: 'The `totp_token` returned alongside `totp_enrollment_required: true`.'
+    TotpEnrollCompleteResponse:
+      type: object
+      description: 'Successful forced enrollment: a real session *plus* the backup codes.
+
+
+        The session is returned here, in the same response that completes
+
+        enrollment, so a user subject to the policy is never left holding a valid
+
+        password and no way in.'
+      required:
+      - access_token
+      - refresh_token
+      - expires_in
+      - token_type
+      - must_change_password
+      - backup_codes
+      properties:
+        access_token:
+          type: string
+        backup_codes:
+          type: array
+          items:
+            type: string
+          description: One-time recovery codes. Shown exactly once — they are stored hashed.
+        expires_in:
+          type: integer
+          format: int64
+          minimum: 0
+        must_change_password:
+          type: boolean
+        refresh_token:
+          type: string
+        token_type:
+          type: string
+    TotpEnrollSetupRequest:
+      type: object
+      description: Request body carrying an enrollment ticket issued by `POST /auth/login`.
+      required:
+      - totp_token
+      properties:
+        totp_token:
+          type: string
+          description: 'The `totp_token` returned alongside `totp_enrollment_required: true`.'
+    TotpPolicy:
+      type: string
+      description: System-wide 2FA enforcement policy.
+      enum:
+      - disabled
+      - required_for_admins
+      - required_for_all
+    TotpPolicyResponse:
+      type: object
+      description: 'Current 2FA enforcement policy plus the context an operator needs before
+
+        tightening it.'
+      required:
+      - policy
+      - source
+      - editable
+      - local_admins
+      - local_admins_with_totp
+      - local_users
+      - local_users_with_totp
+      - caller_totp_enabled
+      properties:
+        caller_totp_enabled:
+          type: boolean
+          description: 'Whether the *calling* administrator has TOTP enabled. Tightening the
+
+            policy requires this.'
+        editable:
+          type: boolean
+          description: Whether `PUT` can change the policy at all right now.
+        local_admins:
+          type: integer
+          format: int64
+          description: Local (password-authenticating, non-service) administrators.
+        local_admins_with_totp:
+          type: integer
+          format: int64
+          description: 'How many of those already have TOTP enabled. Under
+
+            `required_for_admins`, `local_admins - local_admins_with_totp` is the
+
+            number of administrators who will be sent through forced enrollment at
+
+            their next sign-in.'
+        local_users:
+          type: integer
+          format: int64
+          description: Local (password-authenticating, non-service) users, admins included.
+        local_users_with_totp:
+          type: integer
+          format: int64
+          description: How many of those already have TOTP enabled.
+        policy:
+          $ref: '#/components/schemas/TotpPolicy'
+          description: The policy in force.
+        source:
+          $ref: '#/components/schemas/TotpPolicySource'
+          description: 'Whether it comes from the `TOTP_POLICY` environment variable (in which
+
+            case `PUT` is refused) or from the database.'
+    TotpPolicySource:
+      type: string
+      description: 'Where the effective policy came from, surfaced on the admin read endpoint so
+
+        an operator can tell why a `PUT` is refused.'
+      enum:
+      - environment
+      - database
     TotpSetupResponse:
       type: object
       required:
@@ -26059,6 +27397,21 @@ components:
     UpdateOidcConfigRequest:
       type: object
       properties:
+        admin_group:
+          type:
+          - string
+          - 'null'
+          description: 'IdP group whose members are granted the admin role on login. `Some`
+
+            sets `attribute_mapping.admin_group` after the mapping merge/replace
+
+            above is applied; `None` leaves the mapping-derived value alone — so
+
+            `None` together with `attribute_mapping_replace` clears it, which is
+
+            how the env bootstrap revokes group-based admin when
+
+            `OIDC_ADMIN_GROUP` is unset (#3420).'
         allow_legacy_rsa_keys:
           type:
           - boolean
@@ -26619,6 +27972,14 @@ components:
           - 'null'
         repo_selector:
           type: object
+    UpdateTotpPolicyRequest:
+      type: object
+      description: Request body for `PUT /admin/settings/totp-policy`.
+      required:
+      - policy
+      properties:
+        policy:
+          $ref: '#/components/schemas/TotpPolicy'
     UpdateUserRequest:
       type: object
       properties:
@@ -26728,9 +28089,9 @@ components:
           type:
           - boolean
           - 'null'
-          description: 'Accepted and persisted, but consulted by no gate — enforcement is the
+          description: 'Opt-in that makes `severity_threshold` enforced on the proxy/OCI
 
-            `scan_policies` table''s job (#3144; disposition tracked in #3246).'
+            inline scan gate (#3243/#3246). Default false = block on any finding.'
         proxy_scan_action:
           type:
           - string
@@ -26754,7 +28115,9 @@ components:
           type:
           - string
           - 'null'
-          description: Accepted and persisted, but consulted by no production gate (#3243).
+          description: 'Severity floor for the inline proxy scan gate, live only when
+
+            `block_on_policy_violation` is set (#3243/#3246).'
     UpstreamAuthRequest:
       type: object
       required:
