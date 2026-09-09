@@ -31,8 +31,3 @@ pull_request_rules:
         add:
           - ready-to-merge
 
-  - name: Clean up merged branches
-    conditions:
-      - merged
-    actions:
-      delete_head_branch: {}
