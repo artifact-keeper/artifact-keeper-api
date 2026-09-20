@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.9.0"
+    "version": "1.10.0"
   },
   "servers": [
     {
@@ -2787,6 +2787,56 @@
         ]
       }
     },
+    "/api/v1/admin/packages/backfill": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Backfill the package catalog from existing artifacts (#3659).",
+        "description": "The native format handlers only started writing `packages` /\n`package_versions` when their catalog registration landed, so anything\npublished before that upgrade is invisible on the Packages page until it is\nre-published. This replays those publishes through the very same upsert the\nhandlers call, so it is idempotent and safe to run repeatedly.\n\nDeliberately synchronous and simple: it walks live artifact rows in pages\nand upserts as it goes. Requires admin privileges. An optional\n`repository_key` scopes the walk to one repository.",
+        "operationId": "backfill_packages",
+        "parameters": [
+          {
+            "name": "repository_key",
+            "in": "query",
+            "description": "Restrict the walk to one repository. Omit to walk every hosted\nrepository in a catalog-eligible format.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Backfill completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PackagesBackfillResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin privileges required"
+          },
+          "404": {
+            "description": "Repository not found"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/proxy-scan-verdicts/{digest}": {
       "get": {
         "tags": [
@@ -3497,6 +3547,107 @@
           },
           "500": {
             "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/admin/settings/token-policy": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Read the API token expiration policy.",
+        "operationId": "get_token_policy",
+        "responses": {
+          "200": {
+            "description": "Current API token expiration policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPolicyResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "put": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Change the API token expiration policy.",
+        "description": "Takes effect immediately for NEW token mints only; tokens that already\nexist keep whatever `expires_at` (including none) they were minted with,\nso enabling enforcement can never invalidate a credential a pipeline is\nalready running on. The response's `non_expiring_*` counts are the\ninventory to rotate manually if the security posture requires it.",
+        "operationId": "update_token_policy",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTokenPolicyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Policy updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenPolicyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Inconsistent policy (range/default contradiction)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Refused: policy pinned by API_TOKEN_EXPIRATION_* environment variables",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -4831,6 +4982,39 @@
         ]
       }
     },
+    "/api/v1/admin/storage/ledger/backfill": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Recompute `repository_usage_ledger` from the authoritative source tables.",
+        "description": "**When you need this.** The ledger is maintained by migration 182's\nrow-level triggers, and `/admin/stats.total_storage_bytes` sums it (#3134).\nA database **restored from backup** inserts its rows without firing those\ntriggers, so nothing populates the ledger for the restored catalogue and\nthe storage headline reflects only what the instance has written *since*\nthe restore — it can understate the real figure by orders of magnitude.\nThe blobs are present and served correctly; only the accounting is wrong.\nRun this once after a restore.\n\n**What it recomputes**, mirroring the migration-182 trigger rules exactly:\n`hosted_bytes` = `artifacts` with `is_deleted = false` and\n`storage_key NOT LIKE 'proxy-cache/%'`; `proxy_bytes` = every\n`proxy_cache_artifacts` row; `oci_bytes` = every `oci_blobs` row. It is an\nabsolute recompute per repository, so it is idempotent: on a consistent\ninstance every row is rewritten with the value it already held and\n`total_drift_bytes` comes back `0`.\n\n**It is safe to run `/storage-gc` on an unreconciled ledger.** The storage\nGC and blob GC orphan rules do NOT read `repository_usage_ledger` at any\npoint: `ORPHAN_PREDICATE_SQL` and `BLOB_PROTECTED_BY_REFS_SQL`\n(`services/storage_gc_service.rs`) test `artifacts`, `oci_tags`,\n`oci_blobs`, `oci_manifest_refs` and `manifest_blob_refs` only, and the\nledger is pure accounting with no say in what is reachable. A stale ledger\ntherefore cannot make a live blob look unreferenced, and no guard against\nrunning GC before the backfill is needed (#3650).\n\n**Cost.** O(repositories) transactions, each recomputing three aggregates\nover that repository's rows, and the response carries one entry per\nrepository. Admin only.",
+        "operationId": "backfill_storage_ledger",
+        "responses": {
+          "200": {
+            "description": "Ledger recomputed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerBackfillResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Admin privileges required"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/admin/telemetry/crashes": {
       "get": {
         "tags": [
@@ -5801,9 +5985,10 @@
           "auth"
         ],
         "summary": "Exchange a CI-issued OIDC JWT for an Artifact Keeper access token.",
-        "description": "The JWT must be supplied in the `Authorization: Bearer <jwt>` header.\nThe CI platform (GitLab / GitHub Actions / generic OIDC) must be\npre-configured by an administrator via `POST /api/v1/admin/ci-oidc`.",
+        "description": "The JWT must be supplied in the `Authorization: Bearer <jwt>` header.\nThe CI platform (GitLab / GitHub Actions / generic OIDC) must be\npre-configured by an administrator via `POST /api/v1/admin/ci-oidc`.\n\nThe request body is optional: with no body the provider is resolved from\nthe assertion's `iss` claim, so the JWT is the only thing a pipeline needs\n(#3548). Send `{\"provider_id\": \"<uuid>\"}` to name a provider explicitly.",
         "operationId": "exchange_ci_token",
         "requestBody": {
+          "description": "Optional. Omit the body entirely to resolve the provider from the assertion's iss claim; send provider_id only to override that.",
           "content": {
             "application/json": {
               "schema": {
@@ -5824,6 +6009,16 @@
               }
             }
           },
+          "400": {
+            "description": "Malformed body, provider_id disagrees with the assertion's iss, or the issuer matches several enabled providers",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Invalid CI token or provider configuration",
             "content": {
@@ -5835,7 +6030,7 @@
             }
           },
           "404": {
-            "description": "CI OIDC provider not found",
+            "description": "No enabled CI OIDC provider matches the assertion's issuer",
             "content": {
               "application/json": {
                 "schema": {
@@ -6289,11 +6484,10 @@
           {
             "name": "id",
             "in": "path",
-            "description": "SAML provider configuration ID",
+            "description": "SAML provider configuration ID (UUID) or slug",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],
@@ -6335,11 +6529,10 @@
           {
             "name": "id",
             "in": "path",
-            "description": "SAML provider configuration ID",
+            "description": "SAML provider configuration ID (UUID) or slug",
             "required": true,
             "schema": {
-              "type": "string",
-              "format": "uuid"
+              "type": "string"
             }
           }
         ],
@@ -10048,6 +10241,18 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "repository_key",
+            "in": "query",
+            "description": "Optional repository key providing virtual-repo context. When it names a\nvirtual repo that contains this package, the returned `repository_key`\nreports the virtual key (matching the aggregated listing).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
           }
         ],
         "responses": {
@@ -11099,14 +11304,13 @@
         ],
         "responses": {
           "200": {
-            "description": "List of assigned repository IDs",
+            "description": "Sync-enabled subscriptions for this peer (repo id + replication mode)",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "type": "string",
-                    "format": "uuid"
+                    "$ref": "#/components/schemas/SubscriptionResponse"
                   }
                 }
               }
@@ -15740,6 +15944,371 @@
         ]
       }
     },
+    "/api/v1/repositories/{key}/image-builds": {
+      "get": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "list_image_builds",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Builds, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageBuildListResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "create_image_build",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImageBuildRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Build queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageBuildResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid spec, image name or tag; or the repository cannot receive builds"
+          },
+          "503": {
+            "description": "Image builds are not configured on this instance"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/image-builds/base-info": {
+      "get": {
+        "tags": [
+          "image-builds"
+        ],
+        "summary": "What the registry knows about a base image, for the wizard: its\ndistribution family from its own build history and labels, its user, and\nwhether it carries pip or conda. Only images stored in this registry are\nlooked up; anything else is `found: false`.",
+        "operationId": "image_build_base_info",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key (the one being built into)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "image",
+            "in": "query",
+            "description": "Base image reference as the spec names it",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BaseImageInfo"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/image-builds/render": {
+      "post": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "render_image_build",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenderImageBuildRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The Containerfile the server would build",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RenderImageBuildResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The spec is invalid or refused by policy"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/image-builds/settings": {
+      "get": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "image_build_settings",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Builder availability and policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageBuildSettingsResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/image-builds/{id}": {
+      "get": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "get_image_build",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Build id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The build",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageBuildResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such build"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/image-builds/{id}/log": {
+      "get": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "get_image_build_log",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Build id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The buildctl output so far, text/plain"
+          },
+          "404": {
+            "description": "No such build"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/repositories/{key}/image-inspect": {
+      "get": {
+        "tags": [
+          "image-builds"
+        ],
+        "operationId": "inspect_image",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "image",
+            "in": "query",
+            "description": "Image path within the repository",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reference",
+            "in": "query",
+            "description": "Tag or sha256: digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The image as its manifest, config and provenance describe it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageInspect"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository, image or reference not found"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/repositories/{key}/labels": {
       "get": {
         "tags": [
@@ -16838,6 +17407,19 @@
                 "null"
               ]
             }
+          },
+          {
+            "name": "scan_type",
+            "in": "query",
+            "description": "Restrict the listing to one scan engine (#3410), e.g. `grype`.\n\n`ScanResponse.scan_type` is already on the wire but could not be\nfiltered on, so a deployment running several engines had to page the\nwhole list and filter client-side. Validated against\n[`KNOWN_SCAN_TYPES`]: an unrecognized value is a `400`, never an\nunfiltered listing.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "grype"
           },
           {
             "name": "page",
@@ -18879,6 +19461,73 @@
         ]
       }
     },
+    "/api/v1/security/findings/external": {
+      "post": {
+        "tags": [
+          "security"
+        ],
+        "summary": "Ingest findings produced by a scanner that does not live in this tree\n(#3411).",
+        "description": "This is a plain authenticated write, deliberately NOT a `Scanner` impl:\n`scan_artifact_inner` runs scanners in a strictly sequential loop with no\nper-scan timeout while holding one of only four global extraction permits,\nso anything that blocks on a remote round trip would stall a permit for its\nfull latency and four concurrent artifacts would wedge the pipeline.\nIngestion sits outside the scan loop entirely.\n\nThe row is written **already `completed`**, never `pending`. `pending` is in\nthe CHECK constraint and is the column default, but nothing in production\nwrites it and it is a trap for exactly this use case: `ScanState::InProgress`\ntrips `block_unscanned`, so a parked row is a permanent false BLOCK rather\nthan a fail-open; the stuck-scan janitor reaps `status = 'running' AND\nstarted_at IS NOT NULL` and so would never reap it; and `rollup_scan_status`\nranks `pending` above `completed`, pinning a Docker tag's status\nindefinitely. \"The external scanner has not answered yet\" is deliberately\ninvisible.\n\n**Replay**: a re-submitted verdict writes a NEW completed row rather than\nmutating the previous one. Every windowed aggregator on this data is\n`DISTINCT ON (scan_type) ... ORDER BY created_at DESC`, so the newest\nsubmission supersedes its predecessors everywhere the verdict is read, and\nthe superseded rows stay as the audit trail of what the scanner said before.\nA retried submission is therefore safe (idempotent in effect, not in row\ncount).\n\nEnforcement comes free: the download gate's severity check is artifact-wide,\n`ScanResponse.scan_type` and `FindingResponse.source` are already in the API\nresponses, and `recalculate_score` runs before this returns.",
+        "operationId": "ingest_external_findings",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IngestExternalFindingsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Findings ingested",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestExternalFindingsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Malformed submission",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Admin privileges or the write:findings scope required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Artifact not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/security/findings/{id}/acknowledge": {
       "post": {
         "tags": [
@@ -19347,6 +19996,19 @@
             }
           },
           {
+            "name": "scan_type",
+            "in": "query",
+            "description": "Restrict the listing to one scan engine (#3410), e.g. `grype`.\n\n`ScanResponse.scan_type` is already on the wire but could not be\nfiltered on, so a deployment running several engines had to page the\nwhole list and filter client-side. Validated against\n[`KNOWN_SCAN_TYPES`]: an unrecognized value is a `400`, never an\nunfiltered listing.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "grype"
+          },
+          {
             "name": "page",
             "in": "query",
             "required": false,
@@ -19453,6 +20115,45 @@
               "type": "string",
               "format": "uuid"
             }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "description": "Restrict the listing to one severity (#3410).\n\nValidated against [`KNOWN_SEVERITIES`]; an unrecognized token is a\n`400` rather than an unfiltered page.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "critical"
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "description": "Restrict the listing to findings written by one scanner (#3410).\n\nMatched exactly against `scan_findings.source`, which is already\nreturned as `FindingResponse.source`. Free text (no closed vocabulary):\nbounded in length, not enumerated.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "grype"
+          },
+          {
+            "name": "cve_id",
+            "in": "query",
+            "description": "Restrict the listing to one vulnerability identifier (#3410).\n\nMatched exactly against `scan_findings.cve_id`.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "example": "CVE-2024-3094"
           },
           {
             "name": "page",
@@ -20890,7 +21591,7 @@
           "system"
         ],
         "summary": "Return runtime configuration.",
-        "description": "Reachable without authentication so frontends can discover pre-login\naffordances (upload limits, guest access, available login providers). The\nsecurity-posture fields (scanner/auth-provider/permission/plugin-signing/\nstorage configuration) are returned **only to authenticated admins**; for\nanonymous and non-admin callers they are omitted so the instance's\ndefensive configuration cannot be fingerprinted by an unauthenticated\nattacker.",
+        "description": "Reachable without authentication so frontends can discover pre-login\naffordances (upload limits, guest access, available login providers). The\nsecurity-posture fields (scanner/permission/plugin-signing/storage\nconfiguration, and whether the admin break-glass login exists) are returned\n**only to authenticated admins**; for anonymous and non-admin callers they\nare omitted so the instance's defensive configuration cannot be\nfingerprinted by an unauthenticated attacker.",
         "operationId": "get_system_config",
         "responses": {
           "200": {
@@ -22736,6 +23437,158 @@
         }
       }
     },
+    "/pypi/{repo_key}/pypi": {
+      "post": {
+        "tags": [
+          "pypi"
+        ],
+        "summary": "PyPI XML-RPC endpoint (`browse`, `list_packages`).",
+        "operationId": "xmlrpc",
+        "parameters": [
+          {
+            "name": "repo_key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "XML-RPC `methodCall` (opaque). Supported methods: `browse([classifier, ...])` and `list_packages()`.",
+          "content": {
+            "text/xml": {
+              "schema": {
+                "type": "string"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "XML-RPC `methodResponse` (opaque). `browse` answers `[[name, version], ...]` from stored metadata (hosted repositories, and the hosted members of a virtual); an unknown method, a malformed request, or either method on a remote repository or a virtual without hosted members (fault -32001: the call is never forwarded upstream; JupyterLab surfaces it as a generic error, the reason is in the response) answers an XML-RPC fault, not an HTTP error.",
+            "content": {
+              "text/xml": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repository not found"
+          },
+          "413": {
+            "description": "Request body larger than 64 KiB"
+          }
+        }
+      }
+    },
+    "/pypi/{repo_key}/pypi/{project}/json": {
+      "get": {
+        "tags": [
+          "pypi"
+        ],
+        "summary": "Legacy PyPI JSON API, project form.",
+        "operationId": "legacy_project_json",
+        "parameters": [
+          {
+            "name": "repo_key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "description": "Project name; normalized per PEP 503 for the lookup",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy PyPI JSON document: `info` for the latest release, `releases` keyed by version, `urls` for the latest release. Download URLs point at this repository.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Project blocked by a curation rule"
+          },
+          "404": {
+            "description": "Repository or project not found"
+          }
+        }
+      }
+    },
+    "/pypi/{repo_key}/pypi/{project}/{version}/json": {
+      "get": {
+        "tags": [
+          "pypi"
+        ],
+        "summary": "Legacy PyPI JSON API, release form.",
+        "operationId": "legacy_release_json",
+        "parameters": [
+          {
+            "name": "repo_key",
+            "in": "path",
+            "description": "Repository key",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "project",
+            "in": "path",
+            "description": "Project name; normalized per PEP 503 for the lookup",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "description": "Release version (PEP 440; `1.0` matches a stored `1.0.0`)",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Legacy PyPI JSON document for one release: `info` and `urls`. Download URLs point at this repository.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Project or version blocked by a curation rule"
+          },
+          "404": {
+            "description": "Repository, project or release not found"
+          }
+        }
+      }
+    },
     "/readyz": {
       "get": {
         "tags": [
@@ -23242,9 +24095,18 @@
         "required": [
           "id",
           "name",
-          "token"
+          "token",
+          "policy_applied"
         ],
         "properties": {
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the token expires (`None` = never). Authoritative from the mint,\nincluding any expiration the instance policy applied (#3460)."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
@@ -23252,10 +24114,52 @@
           "name": {
             "type": "string"
           },
+          "policy_applied": {
+            "type": "boolean",
+            "description": "True when the instance token expiration policy shaped this mint\n(applied a default or enforced the permitted range)."
+          },
           "token": {
             "type": "string"
           }
         }
+      },
+      "ApiTokenExpiryPolicy": {
+        "type": "object",
+        "description": "The API token expiration policy, as stored and as served by the admin API.",
+        "required": [
+          "require_expiration",
+          "min_days",
+          "max_days"
+        ],
+        "properties": {
+          "apply_to_service_accounts": {
+            "type": "boolean",
+            "description": "Whether service-account token mints are subject to the policy.\nDefaults to false: expiring the credential a pipeline runs on is an\noutage on a schedule, so it must be an explicit opt-in."
+          },
+          "default_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Applied when an enforced request omits `expires_in_days`. `None`\nmeans such requests are rejected instead."
+          },
+          "max_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Maximum acceptable `expires_in_days` while enforcing (inclusive)."
+          },
+          "min_days": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Minimum acceptable `expires_in_days` while enforcing (inclusive)."
+          },
+          "require_expiration": {
+            "type": "boolean",
+            "description": "When false the policy is entirely inert (historical behaviour)."
+          }
+        },
+        "additionalProperties": false
       },
       "ApiTokenListResponse": {
         "type": "object",
@@ -24204,13 +25108,15 @@
           "ldap_enabled",
           "sso_enabled",
           "local_login_enabled",
-          "admin_break_glass_enabled",
           "silent_sso_enabled"
         ],
         "properties": {
           "admin_break_glass_enabled": {
-            "type": "boolean",
-            "description": "Whether the verified-admin break-glass local login path is available\n(issue #2571). Unlike `local_login_enabled` — which only advertises\nthe full local form on explicit `ALLOW_LOCAL_ADMIN_LOGIN=true` opt-in —\nthis reflects the default #443 break-glass: with SSO enabled it is\n`true` unless the operator opted into strict SSO-only via\n`SSO_DISABLE_ADMIN_BREAK_GLASS`. The login UI uses it to render a\ndiscoverable \"Sign in with admin\" affordance next to the SSO buttons\ninstead of requiring the undocumented `?fallback=local` parameter.\nDisplay-only: the login endpoint independently enforces the same\npolicy (`api::handlers::auth::local_login_gate`), so this flag never\ngrants access by itself."
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether the verified-admin break-glass local login path is available\n(issue #2571). Unlike `local_login_enabled` — which only advertises\nthe full local form on explicit `ALLOW_LOCAL_ADMIN_LOGIN=true` opt-in —\nthis reflects the default #443 break-glass: with SSO enabled it is\n`true` unless the operator opted into strict SSO-only via\n`SSO_DISABLE_ADMIN_BREAK_GLASS`. Display-only: the login endpoint\nindependently enforces the same policy\n(`api::handlers::auth::local_login_gate`), so this flag never grants\naccess by itself.\n\n**Admin-only (#3489).** It answers \"is there a local admin password\npath into this instance?\", which is exactly the recon an anonymous\nattacker wants before probing `/api/v1/auth/login`, so it is omitted\nfor anonymous and non-admin callers like the other security-posture\nfields. The login UI does not consume it — it decides whether to show\nthe credentials form from `local_login_enabled`, and `?fallback=local`\nremains the admin recovery route."
           },
           "ldap_enabled": {
             "type": "boolean",
@@ -24231,6 +25137,49 @@
           "sso_enabled": {
             "type": "boolean",
             "description": "Whether SAML SSO is configured (derived from the SSO admin settings in the DB,\nbut for this endpoint we report whether the OIDC issuer is set as a proxy)."
+          }
+        }
+      },
+      "AwsUpstreamAuthRequest": {
+        "type": "object",
+        "description": "Non-secret provider settings for an `aws_ecr` / `aws_codeartifact` upstream\n(#1559).",
+        "required": [
+          "region"
+        ],
+        "properties": {
+          "domain": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "CodeArtifact only: domain name. Required for `aws_codeartifact`."
+          },
+          "domain_owner": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "CodeArtifact only: account id owning the domain. Defaults to the\ncaller's account."
+          },
+          "duration_seconds": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "CodeArtifact only: requested token lifetime in seconds (0, or\n900..=43200). Defaults to the AWS default of 12 hours.",
+            "minimum": 0
+          },
+          "region": {
+            "type": "string",
+            "description": "AWS region of the registry or domain, e.g. `us-east-1`."
+          },
+          "registry_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "ECR only: registry (account) id, used to pin the upstream host."
           }
         }
       },
@@ -24318,6 +25267,67 @@
           },
           "type": {
             "type": "string"
+          }
+        }
+      },
+      "BaseImageInfo": {
+        "type": "object",
+        "description": "What this registry knows about a base image: filled in only when the\nreference names an image stored here (a local repository, or a remote\nrepository's cache), otherwise `found: false` and the console falls back\nto guessing from the name.",
+        "required": [
+          "found",
+          "has_pip",
+          "has_conda"
+        ],
+        "properties": {
+          "architecture": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "found": {
+            "type": "boolean"
+          },
+          "has_conda": {
+            "type": "boolean",
+            "description": "Whether the image carries conda."
+          },
+          "has_pip": {
+            "type": "boolean",
+            "description": "Whether the image carries pip (a `pip install` in its history or a\nPython image label)."
+          },
+          "os": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "reference": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`<repo>/<image>:<tag>` inside this registry, when found."
+          },
+          "system_manager": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "apt | dnf | microdnf | yum | apk, from the image's build history and\nlabels; absent when the image does not say."
+          },
+          "user": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The user the base image runs as; the spec's `user` defaults to it."
           }
         }
       },
@@ -25528,14 +26538,14 @@
       },
       "CiTokenRequest": {
         "type": "object",
-        "required": [
-          "provider_id"
-        ],
         "properties": {
           "provider_id": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "format": "uuid",
-            "description": "UUID of the `ci_oidc_providers` row to use for validation."
+            "description": "Optional UUID of the `ci_oidc_providers` row to validate against.\n\nLeave it out — and omit the body entirely — to have the provider\nresolved from the assertion's own `iss` claim (#3548). The UUID is\nserver-generated and only published by the admin-only\n`GET /api/v1/admin/ci-oidc`, so requiring it here meant a keyless CI\njob had to authenticate with the admin password first.\n\nIt is still honoured as an explicit override, for callers written\nagainst the pre-#3548 shape and for instances that configure two\nenabled providers on the same issuer. It must agree with the\nassertion's `iss`; a provider that does not is a 400."
           }
         }
       },
@@ -25997,15 +27007,28 @@
         "required": [
           "id",
           "token",
-          "name"
+          "name",
+          "policy_applied"
         ],
         "properties": {
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the token expires (`None` = never). Authoritative from the mint,\nincluding any expiration the instance policy applied (#3460)."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
           },
           "name": {
             "type": "string"
+          },
+          "policy_applied": {
+            "type": "boolean",
+            "description": "True when the instance token expiration policy shaped this mint\n(applied a default or enforced the permitted range)."
           },
           "token": {
             "type": "string"
@@ -26344,6 +27367,27 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "CreateImageBuildRequest": {
+        "type": "object",
+        "required": [
+          "image",
+          "tag",
+          "spec"
+        ],
+        "properties": {
+          "image": {
+            "type": "string",
+            "description": "Image path within the repository (`team/app`)."
+          },
+          "spec": {
+            "$ref": "#/components/schemas/ImageBuildSpec"
+          },
+          "tag": {
+            "type": "string",
+            "description": "Tag to push (`2.56.0-genomics`)."
           }
         }
       },
@@ -26816,15 +27860,28 @@
           "id",
           "token",
           "name",
-          "repository_key"
+          "repository_key",
+          "policy_applied"
         ],
         "properties": {
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the token expires (`None` = never). Authoritative from the mint,\nincluding any expiration the instance policy applied (#3460)."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
           },
           "name": {
             "type": "string"
+          },
+          "policy_applied": {
+            "type": "boolean",
+            "description": "True when the instance token expiration policy shaped this mint\n(applied a default or enforced the permitted range)."
           },
           "repository_key": {
             "type": "string"
@@ -26996,7 +28053,7 @@
               "string",
               "null"
             ],
-            "description": "Override the PyPI simple-index prefix for upstreams that do not follow\nthe standard PEP 503 `/simple/` layout (issue #1546).\n\n- Omit or `\"simple\"` — standard PEP 503 (pypi.org, devpi, Nexus). Default.\n- `\"\"` (empty) — flat CDN (e.g. `https://download.pytorch.org/whl/cpu`):\n  package files are served directly under the upstream root with no prefix.\n- Any other non-empty string — custom index prefix.\n\nStored in `repository_config` under `pypi_upstream_index_path`.\nOnly meaningful for PyPI / Poetry / Conda Remote repositories."
+            "description": "Override the PyPI simple-index prefix for upstreams that do not follow\nthe standard PEP 503 `/simple/` layout (issue #1546).\n\n- Omit or `\"simple\"` — standard PEP 503 (pypi.org, devpi, Nexus). Default.\n- `\"\"` (empty) — flat CDN (e.g. `https://download.pytorch.org/whl/cpu`):\n  package files are served directly under the upstream root with no prefix.\n- Any other non-empty string — custom index prefix.\n\nStored in `repository_config` under `pypi_upstream_index_path`.\nOnly meaningful for PyPI / Poetry / Jupyter / Conda Remote repositories."
           },
           "quota_bytes": {
             "type": [
@@ -27190,6 +28247,13 @@
               "string",
               "null"
             ]
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Optional URL-safe alias for the public SAML routes (#2583). Must\nmatch `^[a-z0-9][a-z0-9_-]*$`, be at most 64 characters, not look\nlike a UUID, and be unique across SAML configurations. Omit it to\nkeep the configuration addressable by its `id` only."
           },
           "sp_entity_id": {
             "type": [
@@ -27449,15 +28513,28 @@
         "required": [
           "id",
           "token",
-          "name"
+          "name",
+          "policy_applied"
         ],
         "properties": {
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the token expires (`None` = never). Service-account tokens are\nexempt from the instance expiration policy unless the admin opted them\nin (`apply_to_service_accounts`) (#3460)."
+          },
           "id": {
             "type": "string",
             "format": "uuid"
           },
           "name": {
             "type": "string"
+          },
+          "policy_applied": {
+            "type": "boolean",
+            "description": "True when the instance token expiration policy shaped this mint."
           },
           "token": {
             "type": "string"
@@ -29564,6 +30641,66 @@
           }
         }
       },
+      "ExternalFindingInput": {
+        "type": "object",
+        "description": "One finding as an external scanner reports it.\n\nDeliberately the wire shape of [`FindingResponse`] minus the fields the\nserver owns (ids, acknowledgment state, timestamps), so a scanner that can\nread AK's findings can post findings back in the same vocabulary.",
+        "required": [
+          "severity",
+          "title"
+        ],
+        "properties": {
+          "affected_component": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "affected_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "cve_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "description": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fixed_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "severity": {
+            "type": "string",
+            "description": "Scanner severity token. Normalized through the shared classifier, so a\nvendor's own spelling (`Moderate`, `NEGLIGIBLE`, ...) is accepted.\n\nAn UNRECOGNIZED token classifies as `high`, not `info` — fail-closed,\nper #3306. An unknown verdict from an unknown scanner is the one case\nwhere guessing low would silently disarm every gate that reads severity."
+          },
+          "source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Vendor identity for this finding. Defaults to the submission's\n`scanner` when omitted, and is what `?source=` filters on (#3410)."
+          },
+          "source_url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "title": {
+            "type": "string"
+          }
+        }
+      },
       "FacetValue": {
         "type": "object",
         "required": [
@@ -30449,6 +31586,598 @@
           }
         }
       },
+      "ImageBuildListResponse": {
+        "type": "object",
+        "required": [
+          "items",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageBuildResponse"
+            }
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "ImageBuildResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "repository_key",
+          "image",
+          "tag",
+          "reference",
+          "status",
+          "spec",
+          "containerfile",
+          "requested_by",
+          "created_at",
+          "log_bytes"
+        ],
+        "properties": {
+          "containerfile": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "error": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "finished_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "image": {
+            "type": "string"
+          },
+          "log_bytes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reference": {
+            "type": "string",
+            "description": "`<repo key>/<image>:<tag>` — the reference within this registry."
+          },
+          "repository_key": {
+            "type": "string"
+          },
+          "requested_by": {
+            "type": "string"
+          },
+          "spec": {},
+          "started_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "status": {
+            "type": "string",
+            "description": "queued | running | succeeded | failed"
+          },
+          "tag": {
+            "type": "string"
+          }
+        }
+      },
+      "ImageBuildSettingsResponse": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "repository_buildable",
+          "base_allowlist",
+          "allow_run",
+          "allow_dockerfile",
+          "supported_package_managers",
+          "admin_only",
+          "caller_may_build",
+          "timeout_secs",
+          "max_concurrent"
+        ],
+        "properties": {
+          "admin_only": {
+            "type": "boolean",
+            "description": "Building is restricted to administrators on this instance."
+          },
+          "allow_dockerfile": {
+            "type": "boolean",
+            "description": "Whole-Dockerfile specs are accepted on this instance."
+          },
+          "allow_run": {
+            "type": "boolean"
+          },
+          "base_allowlist": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "caller_may_build": {
+            "type": "boolean",
+            "description": "Whether the caller may build here: repository write access, plus\nadmin when `admin_only`."
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "False when `AK_BUILDKIT_ADDR` / `AK_IMAGE_BUILD_PUSH_REGISTRY` are unset."
+          },
+          "max_concurrent": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pip_index_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The pip index every generated `pip install` uses, when configured."
+          },
+          "push_registry": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The address buildkitd pushes to, for display."
+          },
+          "repository_buildable": {
+            "type": "boolean",
+            "description": "Whether this repository can receive builds (local container repo)."
+          },
+          "supported_package_managers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Package managers a spec may install with, for the UI's dropdown."
+          },
+          "timeout_secs": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ImageBuildSpec": {
+        "type": "object",
+        "description": "What a user asks for. Either a structured spec (`base_image` plus\npackage groups, env, labels, user, workdir) or, when the instance allows\nit, a whole `dockerfile` the server only checks and stamps.",
+        "properties": {
+          "apt": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "base_image": {
+            "type": "string",
+            "description": "The image to build on (`python:3.12-slim`); must match the\nadministrator's base allowlist when one is configured. Ignored when\n`dockerfile` is set (its FROM lines are checked instead)."
+          },
+          "conda": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "conda_channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "dockerfile": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A complete Dockerfile replacing the structured fields; accepted only\nwhen `AK_IMAGE_BUILD_ALLOW_DOCKERFILE=true`. Every FROM must match the\nbase allowlist; the spec label is appended so inspection still knows\nwhat the image came from."
+          },
+          "env": {
+            "type": "object",
+            "description": "Environment variables baked into the image.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "object",
+            "description": "OCI labels baked into the image.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "multistage": {
+            "type": "boolean",
+            "description": "Build pip groups in a separate stage and copy only the installed\npackages into the final image, so build tooling and caches never ship."
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PackageGroup"
+            },
+            "description": "Install steps, rendered in order."
+          },
+          "pip": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "run": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Raw `RUN` lines. Refused unless `AK_IMAGE_BUILD_ALLOW_RUN=true`."
+          },
+          "user": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The user the image runs as (`app`, `1000`, `1000:100`). Required\nwhen any system package group is present (they install as root)."
+          },
+          "workdir": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Working directory the image starts in."
+          }
+        }
+      },
+      "ImageConfig": {
+        "type": "object",
+        "required": [
+          "env",
+          "entrypoint",
+          "cmd",
+          "user",
+          "working_dir",
+          "exposed_ports",
+          "labels"
+        ],
+        "properties": {
+          "cmd": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "entrypoint": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "exposed_ports": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "labels": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "user": {
+            "type": "string"
+          },
+          "working_dir": {
+            "type": "string"
+          }
+        }
+      },
+      "ImageHistoryEntry": {
+        "type": "object",
+        "description": "One `history` row of the image config: the instruction that produced a\nlayer, joined to that layer when it produced one. This is the closest an\nimage gets to its Dockerfile when no provenance attestation carries the\nreal one.",
+        "required": [
+          "created_by",
+          "empty_layer"
+        ],
+        "properties": {
+          "comment": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "created_by": {
+            "type": "string"
+          },
+          "empty_layer": {
+            "type": "boolean"
+          },
+          "layer_digest": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "size_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ImageInspect": {
+        "type": "object",
+        "required": [
+          "reference",
+          "digest",
+          "platforms",
+          "size_bytes",
+          "config",
+          "history",
+          "layers",
+          "source"
+        ],
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/ImageConfig"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Digest of the manifest the details describe (the platform manifest\nwhen `reference` resolved to an index)."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageHistoryEntry"
+            }
+          },
+          "index_digest": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Digest of the index the reference points at, when it is one."
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImageLayer"
+            }
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ImagePlatform"
+            }
+          },
+          "provenance": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ImageProvenance"
+              }
+            ]
+          },
+          "reference": {
+            "type": "string",
+            "description": "The reference that was inspected (`repo/image:tag`)."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "source": {
+            "type": "string",
+            "description": "Which producer filled the document: `registry` (read from storage)."
+          }
+        }
+      },
+      "ImageLayer": {
+        "type": "object",
+        "required": [
+          "digest",
+          "media_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          }
+        }
+      },
+      "ImagePlatform": {
+        "type": "object",
+        "required": [
+          "os",
+          "architecture"
+        ],
+        "properties": {
+          "architecture": {
+            "type": "string"
+          },
+          "os": {
+            "type": "string"
+          },
+          "variant": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "ImageProvenance": {
+        "type": "object",
+        "description": "What a BuildKit SLSA provenance attestation says about how the image\nwas built. `dockerfile` is present only for `mode=max` attestations,\nwhich embed the source; the image builder always emits those.",
+        "required": [
+          "attestation_digest"
+        ],
+        "properties": {
+          "attestation_digest": {
+            "type": "string"
+          },
+          "build_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "builder_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dockerfile": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "dockerfile_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "predicate_type": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "IngestExternalFindingsRequest": {
+        "type": "object",
+        "description": "One external scanner's verdict on one artifact.",
+        "required": [
+          "artifact_id",
+          "scanner",
+          "findings"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The artifact these findings are about."
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExternalFindingInput"
+            },
+            "description": "The findings. May be empty — a clean verdict is a verdict, and it is\nwhat clears a previously-flagged artifact."
+          },
+          "scanner": {
+            "type": "string",
+            "description": "Vendor name, recorded as each finding's `source` unless the finding\noverrides it. Required: an unattributed verdict cannot be filtered,\naudited, or withdrawn."
+          },
+          "scanner_version": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Vendor build/database version, recorded as `scan_results.scanner_version`."
+          }
+        }
+      },
+      "IngestExternalFindingsResponse": {
+        "type": "object",
+        "required": [
+          "scan_id",
+          "artifact_id",
+          "repository_id",
+          "findings_ingested",
+          "score",
+          "grade"
+        ],
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "findings_ingested": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "grade": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "scan_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The `scan_results` row written, already `completed`."
+          },
+          "score": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Repository security score after `recalculate_score`."
+          }
+        }
+      },
       "InitTransferBody": {
         "type": "object",
         "required": [
@@ -30827,6 +32556,112 @@
           },
           "success": {
             "type": "boolean"
+          }
+        }
+      },
+      "LedgerBackfillRepository": {
+        "type": "object",
+        "description": "One repository's before/after in a ledger backfill (#3650).",
+        "required": [
+          "repository_id",
+          "repository_key",
+          "after_total_bytes",
+          "after_hosted_bytes",
+          "after_proxy_bytes",
+          "after_oci_bytes",
+          "drift_bytes"
+        ],
+        "properties": {
+          "after_hosted_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`artifacts` bytes, excluding soft-deleted rows and legacy\n`proxy-cache/%` keys — migration 182's `hosted_bytes` rule verbatim."
+          },
+          "after_oci_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`oci_blobs` bytes (every row counts; a `pending_delete_at` marker is\nnot a deletion and does not change the figure)."
+          },
+          "after_proxy_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`proxy_cache_artifacts` bytes (every row counts). A breakdown of\n`after_total_bytes`, not a disjoint bucket."
+          },
+          "after_total_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Ledger total after the backfill: `hosted + proxy + oci`, the same sum\n`/admin/stats.total_storage_bytes` aggregates."
+          },
+          "before_total_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Ledger total before the backfill, or `null` when the repository had no\nledger row at all. A database restored from backup is the `null` case:\nthe restore inserts `artifacts` / `oci_blobs` / `proxy_cache_artifacts`\nrows without firing migration 182's triggers, so no ledger row is ever\nwritten for them."
+          },
+          "drift_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`after_total_bytes - before_total_bytes`, counting a missing row as 0."
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repository_key": {
+            "type": "string"
+          }
+        }
+      },
+      "LedgerBackfillResponse": {
+        "type": "object",
+        "description": "Result of `POST /api/v1/admin/storage/ledger/backfill` (#3650).",
+        "required": [
+          "repositories_checked",
+          "repositories_repaired",
+          "repositories_skipped",
+          "total_drift_bytes",
+          "before_total_storage_bytes",
+          "after_total_storage_bytes",
+          "repositories"
+        ],
+        "properties": {
+          "after_total_storage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`/admin/stats.total_storage_bytes` as it reads after the backfill."
+          },
+          "before_total_storage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`/admin/stats.total_storage_bytes` as it read before the backfill."
+          },
+          "repositories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LedgerBackfillRepository"
+            },
+            "description": "Per-repository detail, ordered by repository key."
+          },
+          "repositories_checked": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "repositories_repaired": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Repositories whose ledger total changed."
+          },
+          "repositories_skipped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Repositories deleted between the scan and their recompute. Not an\nerror — the ledger row went with them."
+          },
+          "total_drift_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sum of the absolute per-repository corrections, in bytes."
           }
         }
       },
@@ -32239,6 +34074,31 @@
           }
         }
       },
+      "PackageGroup": {
+        "type": "object",
+        "description": "One install step: which manager, which packages, and for conda which\nchannels. Groups render in the order given.",
+        "required": [
+          "manager"
+        ],
+        "properties": {
+          "channels": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "conda channels (`conda-forge`, `bioconda`); conda groups only."
+          },
+          "manager": {
+            "$ref": "#/components/schemas/PackageManager"
+          },
+          "packages": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "PackageListQuery": {
         "type": "object",
         "required": [
@@ -32282,6 +34142,19 @@
             "$ref": "#/components/schemas/Pagination"
           }
         }
+      },
+      "PackageManager": {
+        "type": "string",
+        "description": "A package manager a spec may install with. The system managers run as\nroot in the final stage and need the spec to name the `user` the image\nruns as afterwards; `pip` moves to a builder stage when `multistage` is\nset; `conda` always installs in the final stage.",
+        "enum": [
+          "apt",
+          "dnf",
+          "microdnf",
+          "yum",
+          "apk",
+          "pip",
+          "conda"
+        ]
       },
       "PackageResponse": {
         "type": "object",
@@ -32504,6 +34377,54 @@
             "items": {
               "$ref": "#/components/schemas/PackageVersionResponse"
             }
+          }
+        }
+      },
+      "PackagesBackfillQuery": {
+        "type": "object",
+        "description": "Query parameters for `POST /api/v1/admin/packages/backfill`.",
+        "properties": {
+          "repository_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Restrict the walk to one repository. Omit to walk every hosted\nrepository in a catalog-eligible format."
+          }
+        }
+      },
+      "PackagesBackfillResponse": {
+        "type": "object",
+        "required": [
+          "message",
+          "artifacts_scanned",
+          "packages_registered",
+          "artifacts_skipped",
+          "artifacts_failed"
+        ],
+        "properties": {
+          "artifacts_failed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Rows whose upsert errored; the walk continues past them."
+          },
+          "artifacts_scanned": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Live artifact rows considered."
+          },
+          "artifacts_skipped": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Rows with no derivable package coordinates (index/sidecar rows)."
+          },
+          "message": {
+            "type": "string"
+          },
+          "packages_registered": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Catalog upserts performed."
           }
         }
       },
@@ -33195,6 +35116,7 @@
           "dry_run",
           "artifacts_matched",
           "artifacts_removed",
+          "bytes_matched",
           "bytes_freed",
           "errors"
         ],
@@ -33209,7 +35131,13 @@
           },
           "bytes_freed": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Bytes actually reclaimed by this run. Always zero for a dry run."
+          },
+          "bytes_matched": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes held by the `artifacts_matched` rows -- what a run *would*\nreclaim. Populated for a dry run as well as a live one, which is the\nwhole point of a preview: `bytes_freed` is deliberately zero on a dry\nrun (nothing was freed), so before this field a preview could report\nwhich artifacts it would delete but never how much space that was\nworth (#2024)."
           },
           "dry_run": {
             "type": "boolean"
@@ -34663,6 +36591,35 @@
           }
         }
       },
+      "RenderImageBuildRequest": {
+        "type": "object",
+        "required": [
+          "spec"
+        ],
+        "properties": {
+          "spec": {
+            "$ref": "#/components/schemas/ImageBuildSpec"
+          }
+        }
+      },
+      "RenderImageBuildResponse": {
+        "type": "object",
+        "required": [
+          "containerfile",
+          "warnings"
+        ],
+        "properties": {
+          "containerfile": {
+            "type": "string"
+          },
+          "warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
       "RepoExposure": {
         "type": "object",
         "description": "Repository exposure descriptor echoed in the response.",
@@ -35283,10 +37240,19 @@
             ],
             "format": "date-time"
           },
+          "proxy_artifact_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The proxy-cache half of `artifact_count` / `storage_bytes`, read from\n`proxy_cache_artifacts` (those rows never appear in `artifacts`, #1280).\nDisjoint from the hosted figures above, which exclude the legacy\nbackfilled `proxy-cache/%` `artifacts` rows the same way\n`repository_usage_ledger.hosted_bytes` does (migration 182) — unlike\n`StorageSnapshot::proxy_storage_bytes`, which is a breakdown of a total\nthat already contains it. Defaults to 0 on older payloads."
+          },
           "proxy_download_count": {
             "type": "integer",
             "format": "int64",
             "description": "Downloads served by this repository's remote pull-through proxy\n(`proxy_download_statistics`, #2537/#2704). Proxy-cached objects carry\nno `artifacts` row (#1280), so these serves are counted in a sibling\ntable and were previously not readable through any API. Kept separate\nfrom `download_count` (hosted serves) so existing consumers are\nunaffected; defaults to 0 when deserializing older payloads."
+          },
+          "proxy_storage_bytes": {
+            "type": "integer",
+            "format": "int64"
           },
           "repository_id": {
             "type": "string",
@@ -35306,7 +37272,7 @@
       },
       "RepositoryStorageStatsResponse": {
         "type": "object",
-        "description": "Deduplicated storage-accounting response for a single repository (#2056).\n\nAll figures are read from the materialized `repository_storage_stats` cache\n(refreshed on a schedule + post-GC), so this endpoint is an O(1) primary-key\nlookup and never runs the heavy cross-repo aggregation. `computed_at` is the\nfreshness marker; it is `null` until the first refresh has run.\n\nQuota is unaffected: these numbers are accounting/visibility only and do NOT\nchange how the repository's storage quota is enforced (#2056 §7).",
+        "description": "Deduplicated storage-accounting response for a single repository (#2056).\n\nAll figures are read from the materialized `repository_storage_stats` cache\n(refreshed on a schedule + post-GC), so this endpoint is an O(1) primary-key\nlookup and never runs the heavy cross-repo aggregation. `computed_at` is the\nfreshness marker; it is `null` until the first refresh has run.\n\nQuota is unaffected: these numbers are accounting/visibility only and do NOT\nchange how the repository's storage quota is enforced (#2056 §7).\n\nKnown bounded exclusion: OCI *manifest* JSON objects are not weighed. Their\n`artifacts.size_bytes` holds the aggregate image size, not the stored\nobject, so counting it would double the layer bytes (#3286); no column holds\nthe manifest's true size. Manifests are a few KB each, so every figure below\nunder-reports by roughly that much per tag (#3618).",
         "required": [
           "repository_key",
           "logical_bytes",
@@ -35902,6 +37868,13 @@
               "string",
               "null"
             ]
+          },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "URL-safe alias the public SAML routes accept in place of `id`\n(migration 218, #2583). `None` when the configuration has not been\ngiven one; it is then addressable by `id` only."
           },
           "sp_entity_id": {
             "type": "string"
@@ -37159,13 +39132,17 @@
       },
       "StorageGcRequest": {
         "type": "object",
-        "description": "Request body for storage GC.",
+        "description": "Request body for storage GC.\n\n`dry_run` is **required** and unknown fields are **rejected** (#3501): a\nlive GC pass is irreversible (no tombstone, no restore path short of a\nbackup), so an ambiguous request must fail loudly instead of selecting the\ndestructive branch. Before this, `{}` and any typo'd key\n(`{\"dryRun\": true}`, `{\"dry_Run\": true}`) silently deserialized to\n`dry_run: false` and performed a real deletion. Callers now say which pass\nthey mean: `{\"dry_run\": true}` to estimate, `{\"dry_run\": false}` to\ndelete; anything else is refused with an error naming the missing or\nunknown field (axum's `Json` rejection, HTTP 422), and nothing is deleted.",
+        "required": [
+          "dry_run"
+        ],
         "properties": {
           "dry_run": {
             "type": "boolean",
-            "description": "When true, report what would be deleted without actually deleting."
+            "description": "When true, report what would be deleted without actually deleting.\nRequired: an absent field is a rejected request, never a live delete."
           }
-        }
+        },
+        "additionalProperties": false
       },
       "StorageGcResult": {
         "type": "object",
@@ -37218,6 +39195,21 @@
           "total_users"
         ],
         "properties": {
+          "proxy_artifact_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Proxy-cached objects at snapshot time (migration 210). They carry no\n`artifacts` row (#1280), so this is disjoint from `total_artifacts`.\n0 for snapshots taken before migration 210 and on older payloads."
+          },
+          "proxy_download_count": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Pull-through serves, recorded in `proxy_download_statistics` rather\nthan `download_statistics`, so this is disjoint from `total_downloads`."
+          },
+          "proxy_storage_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes held by those objects — a *breakdown* of `total_storage_bytes`\nabove, not a disjoint bucket: that total sums\n`repository_usage_ledger (hosted_bytes + proxy_bytes + oci_bytes)` and\nmigration 182 defines `proxy_bytes` as exactly this sum, so the two\nmust not be added. Same contract as the identically named\n`/admin/stats` field (#3134/#3249). (On `RepositoryStorageBreakdown`\nthe same field name IS disjoint from that struct's `storage_bytes`,\nwhich is hosted-only.)"
+          },
           "snapshot_date": {
             "type": "string",
             "format": "date"
@@ -37600,7 +39592,7 @@
       },
       "SystemConfigResponse": {
         "type": "object",
-        "description": "Runtime configuration values.\n\nThis response intentionally omits all secrets, credentials, and internal\nconnection strings.\n\nDisclosure is tiered (see `get_system_config`):\n\n* **Public-safe fields** are always present — they only describe UI/client\n  affordances a caller needs *before* authenticating (upload limit, demo\n  mode, whether guest access and which login providers are available).\n* **Security-posture fields** (`scanners`, `search_engine`,\n  `storage_backend`, `permissions`, `plugin_signing`) describe the\n  instance's defensive configuration. They are returned **only to\n  authenticated admins** and are omitted for anonymous / non-admin callers,\n  so the deployment's security posture cannot be fingerprinted by an\n  unauthenticated attacker.",
+        "description": "Runtime configuration values.\n\nThis response intentionally omits all secrets, credentials, and internal\nconnection strings.\n\nDisclosure is tiered (see `get_system_config`):\n\n* **Public-safe fields** are always present — they only describe UI/client\n  affordances a caller needs *before* authenticating (upload limit, demo\n  mode, whether guest access and which login providers are available).\n* **Security-posture fields** (`scanners`, `search_engine`,\n  `storage_backend`, `permissions`, `plugin_signing`, and\n  `auth.admin_break_glass_enabled`) describe the instance's defensive\n  configuration. They are returned **only to authenticated admins** and are\n  omitted for anonymous / non-admin callers, so the deployment's security\n  posture cannot be fingerprinted by an unauthenticated attacker.",
         "required": [
           "max_upload_size_bytes",
           "demo_mode",
@@ -37755,11 +39747,12 @@
           "proxy_artifact_count": {
             "type": "integer",
             "format": "int64",
-            "description": "Proxy-cached (pull-through) objects, tracked in `proxy_cache_artifacts`\nrather than `artifacts`. Since #3134 the byte figure is a breakdown of\n`total_storage_bytes` (do not add the two)."
+            "description": "Count of proxy-cached (pull-through) objects, tracked in\n`proxy_cache_artifacts` rather than `artifacts`. This COUNT is disjoint\nfrom `total_artifacts`, which reads only the hosted tables."
           },
           "proxy_storage_bytes": {
             "type": "integer",
-            "format": "int64"
+            "format": "int64",
+            "description": "Bytes held by proxy-cached objects. Since #3134 this is a **breakdown\nof** `total_storage_bytes`, not a disjoint bucket: the ledger's\n`proxy_bytes` component is already inside that total, so a dashboard\nthat adds the two double-counts the cache (#3650). The count above and\nthe bytes here therefore do NOT compose the same way — only the count\nis disjoint."
           },
           "total_artifacts": {
             "type": "integer",
@@ -38046,6 +40039,49 @@
             }
           }
         }
+      },
+      "TokenPolicyResponse": {
+        "type": "object",
+        "description": "Current API token expiration policy plus the inventory an operator needs\nbefore (or after) tightening it: how many live tokens already exist with\nno expiration. Enabling the policy never touches those rows — they are\nsurfaced here so an administrator can rotate them deliberately.",
+        "required": [
+          "policy",
+          "source",
+          "editable",
+          "non_expiring_user_tokens",
+          "non_expiring_service_account_tokens"
+        ],
+        "properties": {
+          "editable": {
+            "type": "boolean",
+            "description": "Whether `PUT` can change the policy at all right now."
+          },
+          "non_expiring_service_account_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Live never-expiring tokens held by service accounts (CI credentials —\nexempt from enforcement unless `apply_to_service_accounts` is set)."
+          },
+          "non_expiring_user_tokens": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Live (unrevoked, active-owner) never-expiring tokens held by regular\nusers. These predate or bypass the policy and are unaffected by it;\nrotate them via the existing token-revocation endpoints."
+          },
+          "policy": {
+            "$ref": "#/components/schemas/ApiTokenExpiryPolicy",
+            "description": "The policy in force."
+          },
+          "source": {
+            "$ref": "#/components/schemas/TokenPolicySource",
+            "description": "Whether it comes from the `API_TOKEN_EXPIRATION_*` environment\nvariables (in which case `PUT` is refused) or from the database."
+          }
+        }
+      },
+      "TokenPolicySource": {
+        "type": "string",
+        "description": "Where the effective policy came from, surfaced on the admin read endpoint\nso an operator can tell why a `PUT` is refused.",
+        "enum": [
+          "environment",
+          "database"
+        ]
       },
       "TotpCodeRequest": {
         "type": "object",
@@ -39256,7 +41292,7 @@
               "string",
               "null"
             ],
-            "description": "Update the PyPI simple-index prefix (stored in `repository_config` under\n`pypi_upstream_index_path`). Pass `\"\"` for flat CDN layout, `\"simple\"` to\nrestore the PEP 503 default, or any other non-empty string for a custom prefix.\nOnly meaningful for PyPI / Poetry / Conda Remote repositories."
+            "description": "Update the PyPI simple-index prefix (stored in `repository_config` under\n`pypi_upstream_index_path`). Pass `\"\"` for flat CDN layout, `\"simple\"` to\nrestore the PEP 503 default, or any other non-empty string for a custom prefix.\nOnly meaningful for PyPI / Poetry / Jupyter / Conda Remote repositories."
           },
           "quarantine_duration_minutes": {
             "type": [
@@ -39437,6 +41473,13 @@
               "null"
             ]
           },
+          "slug": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Set or change the URL-safe alias (#2583). Omitting it preserves the\ncurrent value, matching how `slo_url` and `admin_group` behave; a\nslug therefore cannot be cleared through this endpoint, only\nreplaced, so an ACS URL an IdP is already configured with cannot be\nremoved by an update that simply forgot to mention it."
+          },
           "sp_entity_id": {
             "type": [
               "string",
@@ -39553,6 +41596,18 @@
           },
           "repo_selector": {
             "type": "object"
+          }
+        }
+      },
+      "UpdateTokenPolicyRequest": {
+        "type": "object",
+        "description": "Request body for `PUT /admin/settings/token-policy`.",
+        "required": [
+          "policy"
+        ],
+        "properties": {
+          "policy": {
+            "$ref": "#/components/schemas/ApiTokenExpiryPolicy"
           }
         }
       },
@@ -39713,7 +41768,18 @@
         "properties": {
           "auth_type": {
             "type": "string",
-            "description": "Auth type: \"basic\", \"bearer\", or \"none\" to remove."
+            "description": "Auth type: \"basic\", \"bearer\", \"aws_ecr\", \"aws_codeartifact\", or \"none\"\nto remove."
+          },
+          "aws": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/AwsUpstreamAuthRequest",
+                "description": "Provider settings for the dynamic AWS auth types (#1559). Required for\n`aws_ecr` and `aws_codeartifact`, ignored otherwise.\n\nCarries no secret: the AWS identity comes from the process's default\ncredential chain (IRSA / EKS Pod Identity / instance profile / static\n`AWS_*` environment keys), never from this request."
+              }
+            ]
           },
           "password": {
             "type": [
@@ -40248,6 +42314,10 @@
       "description": "Health and readiness checks"
     },
     {
+      "name": "pypi",
+      "description": "PyPI endpoints beyond the Simple API: legacy JSON API and XML-RPC"
+    },
+    {
       "name": "system",
       "description": "Public system configuration"
     },
@@ -40258,6 +42328,10 @@
     {
       "name": "repository-labels",
       "description": "Repository label management"
+    },
+    {
+      "name": "image-builds",
+      "description": "Server-side container image builds and image inspection"
     },
     {
       "name": "peer-instance-labels",
