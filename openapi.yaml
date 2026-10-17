@@ -17,15 +17,17 @@ info:
     Format (package-manager) endpoints such as `/v2/*` (OCI), `/incus/*`, `/debian/*`, and the language registries are intentionally
     more permissive for client compatibility: in addition to Bearer, they accept HTTP **Basic** auth with the API token supplied
     in the *password* field (any username), matching the `pip` netrc / Artifactory-style `token:<api_token>` convention used
-    by package managers that cannot send a Bearer header. This Basic-with-token fallback applies to format endpoints only,
-    never to `/api/v1/*`.'
+    by package managers that cannot send a Bearer header. The one `/api/v1` route that shares this contract is the repository
+    download route, `GET /api/v1/repositories/{key}/download/{path}`: it serves the same bytes as the format endpoints, so
+    it accepts the API token as the Basic password and answers an anonymous request on a non-public repository with `401`
+    and a `WWW-Authenticate` challenge, like they do. Every other `/api/v1/*` route refuses the Basic-with-token fallback.'
   contact:
     name: Artifact Keeper
     url: https://artifactkeeper.com
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.0
+  version: 1.11.1
 servers:
 - url: /
   description: Current server
@@ -1542,7 +1544,7 @@ paths:
         '400':
           description: Invalid filter parameter
         '403':
-          description: Admin privileges required
+          description: Admin privileges required, or the token is repository-scoped
       security:
       - bearer_auth: []
   /api/v1/admin/downloads/by-ip/{ip}:
@@ -1623,7 +1625,7 @@ paths:
         '400':
           description: Invalid IP address
         '403':
-          description: Admin privileges required
+          description: Admin privileges required, or the token is repository-scoped
       security:
       - bearer_auth: []
   /api/v1/admin/downloads/by-user/{user_id}:
@@ -1700,7 +1702,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DownloadListResponse'
         '403':
-          description: Admin privileges required
+          description: Admin privileges required, or the token is repository-scoped
       security:
       - bearer_auth: []
   /api/v1/admin/holds/quarantine:
@@ -3661,6 +3663,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemStats'
+        '403':
+          description: Admin privileges required, or the token is repository-scoped
         '500':
           description: Internal server error
       security:
@@ -9111,9 +9115,16 @@ paths:
     post:
       tags:
       - plugins
-      summary: 'Install a plugin from local filesystem path (T063)
+      summary: Install a plugin from local filesystem path (T063).
+      description: '**Not implemented** (#4671): always answers 501 `NOT_IMPLEMENTED`. It used
 
-        This endpoint is intended for development use only.'
+        to resolve the caller''s path on the server''s filesystem and then fail with
+
+        a 500 from a placeholder service method, which both paged operators for a
+
+        known gap and told the caller whether an arbitrary server path existed.
+
+        The path is no longer touched.'
       operationId: install_from_local
       requestBody:
         content:
@@ -9122,14 +9133,24 @@ paths:
               $ref: '#/components/schemas/InstallFromLocalRequest'
         required: true
       responses:
-        '200':
-          description: Plugin installed from local path
+        '401':
+          description: Authentication required
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PluginInstallResponse'
-        '400':
-          description: Invalid path
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Admin privileges required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '501':
+          description: Local-path installation is not implemented (code `NOT_IMPLEMENTED`); use the Git or ZIP install routes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
   /api/v1/plugins/install/zip:
@@ -13225,7 +13246,8 @@ paths:
         '200':
           description: Upstream auth updated
         '400':
-          description: Invalid auth type or missing fields
+          description: 'Invalid auth type or missing fields, or `PUBLIC_REMOTE_UPSTREAM_CREDENTIALS`: the repository is public
+            and `allow_public_with_upstream_credentials` was not sent (#4662)'
         '401':
           description: Authentication required
         '404':
@@ -13769,7 +13791,16 @@ paths:
 
         are the only input, which is why this needs authentication but no
 
-        repository permission: no stored data of any tenant is read.'
+        repository permission: no stored data of any tenant is read.
+
+
+        `environment` / `platform` select a subset of the graphs. A response that
+
+        would exceed [`MAX_ENVIRONMENT_SBOM_RESPONSE_BYTES`] is refused with 422
+
+        `UNPROCESSABLE_ENTITY` naming the graphs, so the caller can fetch them one
+
+        at a time (#4670).'
       operationId: generate_environment_sbom
       parameters:
       - name: filename
@@ -13783,6 +13814,22 @@ paths:
       - name: format
         in: query
         description: '`cyclonedx` (default) or `spdx`.'
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: environment
+        in: query
+        description: Render only the graphs of this named environment (`pixi.lock`).
+        required: false
+        schema:
+          type:
+          - string
+          - 'null'
+      - name: platform
+        in: query
+        description: Render only the graphs of this platform / conda subdir (`linux-64`).
         required: false
         schema:
           type:
@@ -13803,7 +13850,8 @@ paths:
               schema:
                 type: object
         '400':
-          description: Unrecognized, unhandled or unparseable lockfile
+          description: Unrecognized, unhandled or unparseable lockfile, or an environment/platform filter that matches no
+            graph
           content:
             application/json:
               schema:
@@ -13816,6 +13864,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '413':
           description: Lockfile exceeds the size ceiling
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: The rendered documents exceed the response size ceiling; request fewer graphs with `platform` / `environment`
           content:
             application/json:
               schema:
@@ -21848,6 +21902,30 @@ components:
 
             `allow_anonymous_access` takes precedence.'
           deprecated: true
+        allow_public_with_upstream_credentials:
+          type:
+          - boolean
+          - 'null'
+          description: 'Accept a public repository that carries upstream credentials (#4662).
+
+
+            A public Remote serves anonymous callers, and every upstream request it
+
+            makes on their behalf carries the repository''s upstream credentials
+
+            (upstream-auth, or userinfo embedded in `upstream_url`). Making a
+
+            repository public while it has upstream credentials, or adding
+
+            credentials to a public repository, is refused with 400
+
+            `PUBLIC_REMOTE_UPSTREAM_CREDENTIALS` unless this is `true`. The choice
+
+            is stored with the repository, so a later toggle back to public does
+
+            not need it again; send `false` to withdraw it. Accepting it is logged
+
+            at WARN and recorded in the audit log.'
         apt_description:
           type:
           - string
@@ -30270,6 +30348,8 @@ components:
       - has_trusted_gpg_key
       - upstream_url_has_credentials
       - upstream_auth_configured
+      - public_with_upstream_credentials
+      - allow_public_with_upstream_credentials
       - curation_enabled
       - curation_default_action
       - created_at
@@ -30283,6 +30363,15 @@ components:
 
             the semantics are clear for remote (pull-through cache) repositories.'
           deprecated: true
+        allow_public_with_upstream_credentials:
+          type: boolean
+          description: 'Whether an administrator accepted that state by sending
+
+            `allow_public_with_upstream_credentials: true` (#4662). A repository
+
+            that was already public with credentials before the guardrail existed
+
+            reports `public_with_upstream_credentials: true` with this `false`.'
         apt_description:
           type:
           - string
@@ -30450,6 +30539,13 @@ components:
         promotion_only:
           type: boolean
           description: When true, direct user uploads are rejected; artifacts must be promoted.
+        public_with_upstream_credentials:
+          type: boolean
+          description: '`true` when this repository is public AND carries upstream credentials
+
+            (upstream-auth or userinfo in `upstream_url`), so anonymous callers
+
+            make it spend those credentials upstream (#4662). A UI should flag it.'
         quarantine_duration_minutes:
           type:
           - integer
@@ -34771,6 +34867,30 @@ components:
 
             `allow_anonymous_access` takes precedence.'
           deprecated: true
+        allow_public_with_upstream_credentials:
+          type:
+          - boolean
+          - 'null'
+          description: 'Accept a public repository that carries upstream credentials (#4662).
+
+
+            A public Remote serves anonymous callers, and every upstream request it
+
+            makes on their behalf carries the repository''s upstream credentials
+
+            (upstream-auth, or userinfo embedded in `upstream_url`). Making a
+
+            repository public while it has upstream credentials, or adding
+
+            credentials to a public repository, is refused with 400
+
+            `PUBLIC_REMOTE_UPSTREAM_CREDENTIALS` unless this is `true`. The choice
+
+            is stored with the repository, so a later toggle back to public does
+
+            not need it again; send `false` to withdraw it. Accepting it is logged
+
+            at WARN and recorded in the audit log.'
         apt_description:
           type:
           - string
@@ -35439,6 +35559,17 @@ components:
       required:
       - auth_type
       properties:
+        allow_public_with_upstream_credentials:
+          type:
+          - boolean
+          - 'null'
+          description: 'Accept upstream credentials on a public repository (#4662); see
+
+            `allow_public_with_upstream_credentials` on the repository update
+
+            request. Without it, configuring credentials on a public repository is
+
+            refused with 400 `PUBLIC_REMOTE_UPSTREAM_CREDENTIALS`.'
         auth_type:
           type: string
           description: 'Auth type: "basic", "bearer", "aws_ecr", "aws_codeartifact", or "none"

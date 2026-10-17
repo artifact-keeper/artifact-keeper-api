@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Artifact Keeper API",
-    "description": "Enterprise artifact registry supporting 45+ package formats.\n\n## Authentication\n\nThe JSON management API under `/api/v1/*` accepts **API tokens only as `Authorization: Bearer <token>`**. This is the canonical scheme for programmatic access; JWTs issued by the login flow also use `Bearer`. HTTP Basic credentials on `/api/v1/*` are validated *only* as a real `username:password` login — the password half is **not** retried as an API token. A request to `/api/v1/*` that sends an API token in the password field of Basic auth therefore returns `401 AUTH_ERROR`; switch to `Authorization: Bearer <token>`.\n\nFormat (package-manager) endpoints such as `/v2/*` (OCI), `/incus/*`, `/debian/*`, and the language registries are intentionally more permissive for client compatibility: in addition to Bearer, they accept HTTP **Basic** auth with the API token supplied in the *password* field (any username), matching the `pip` netrc / Artifactory-style `token:<api_token>` convention used by package managers that cannot send a Bearer header. This Basic-with-token fallback applies to format endpoints only, never to `/api/v1/*`.",
+    "description": "Enterprise artifact registry supporting 45+ package formats.\n\n## Authentication\n\nThe JSON management API under `/api/v1/*` accepts **API tokens only as `Authorization: Bearer <token>`**. This is the canonical scheme for programmatic access; JWTs issued by the login flow also use `Bearer`. HTTP Basic credentials on `/api/v1/*` are validated *only* as a real `username:password` login — the password half is **not** retried as an API token. A request to `/api/v1/*` that sends an API token in the password field of Basic auth therefore returns `401 AUTH_ERROR`; switch to `Authorization: Bearer <token>`.\n\nFormat (package-manager) endpoints such as `/v2/*` (OCI), `/incus/*`, `/debian/*`, and the language registries are intentionally more permissive for client compatibility: in addition to Bearer, they accept HTTP **Basic** auth with the API token supplied in the *password* field (any username), matching the `pip` netrc / Artifactory-style `token:<api_token>` convention used by package managers that cannot send a Bearer header. The one `/api/v1` route that shares this contract is the repository download route, `GET /api/v1/repositories/{key}/download/{path}`: it serves the same bytes as the format endpoints, so it accepts the API token as the Basic password and answers an anonymous request on a non-public repository with `401` and a `WWW-Authenticate` challenge, like they do. Every other `/api/v1/*` route refuses the Basic-with-token fallback.",
     "contact": {
       "name": "Artifact Keeper",
       "url": "https://artifactkeeper.com"
@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.11.0"
+    "version": "1.11.1"
   },
   "servers": [
     {
@@ -2437,7 +2437,7 @@
             "description": "Invalid filter parameter"
           },
           "403": {
-            "description": "Admin privileges required"
+            "description": "Admin privileges required, or the token is repository-scoped"
           }
         },
         "security": [
@@ -2557,7 +2557,7 @@
             "description": "Invalid IP address"
           },
           "403": {
-            "description": "Admin privileges required"
+            "description": "Admin privileges required, or the token is repository-scoped"
           }
         },
         "security": [
@@ -2674,7 +2674,7 @@
             }
           },
           "403": {
-            "description": "Admin privileges required"
+            "description": "Admin privileges required, or the token is repository-scoped"
           }
         },
         "security": [
@@ -5677,6 +5677,9 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Admin privileges required, or the token is repository-scoped"
           },
           "500": {
             "description": "Internal server error"
@@ -14213,7 +14216,8 @@
         "tags": [
           "plugins"
         ],
-        "summary": "Install a plugin from local filesystem path (T063)\nThis endpoint is intended for development use only.",
+        "summary": "Install a plugin from local filesystem path (T063).",
+        "description": "**Not implemented** (#4671): always answers 501 `NOT_IMPLEMENTED`. It used\nto resolve the caller's path on the server's filesystem and then fail with\na 500 from a placeholder service method, which both paged operators for a\nknown gap and told the caller whether an arbitrary server path existed.\nThe path is no longer touched.",
         "operationId": "install_from_local",
         "requestBody": {
           "content": {
@@ -14226,18 +14230,35 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "description": "Plugin installed from local path",
+          "401": {
+            "description": "Authentication required",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PluginInstallResponse"
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
           },
-          "400": {
-            "description": "Invalid path"
+          "403": {
+            "description": "Admin privileges required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Local-path installation is not implemented (code `NOT_IMPLEMENTED`); use the Git or ZIP install routes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         },
         "security": [
@@ -20504,7 +20525,7 @@
             "description": "Upstream auth updated"
           },
           "400": {
-            "description": "Invalid auth type or missing fields"
+            "description": "Invalid auth type or missing fields, or `PUBLIC_REMOTE_UPSTREAM_CREDENTIALS`: the repository is public and `allow_public_with_upstream_credentials` was not sent (#4662)"
           },
           "401": {
             "description": "Authentication required"
@@ -21273,7 +21294,7 @@
           "sbom"
         ],
         "summary": "Render an uploaded lockfile as environment SBOM documents (#4053).",
-        "description": "An environment is N dependency graphs — one per (environment, platform)\nscope — so the response carries one document per scope rather than a\nsingle document that would be wrong for every platform. Nothing is\npersisted: there is no stored environment model in this build (the\nlockfile parser of #4052 is a pure transformation), so the documents are\nregenerated per request, like the proxy SBOM above. The caller's own bytes\nare the only input, which is why this needs authentication but no\nrepository permission: no stored data of any tenant is read.",
+        "description": "An environment is N dependency graphs — one per (environment, platform)\nscope — so the response carries one document per scope rather than a\nsingle document that would be wrong for every platform. Nothing is\npersisted: there is no stored environment model in this build (the\nlockfile parser of #4052 is a pure transformation), so the documents are\nregenerated per request, like the proxy SBOM above. The caller's own bytes\nare the only input, which is why this needs authentication but no\nrepository permission: no stored data of any tenant is read.\n\n`environment` / `platform` select a subset of the graphs. A response that\nwould exceed [`MAX_ENVIRONMENT_SBOM_RESPONSE_BYTES`] is refused with 422\n`UNPROCESSABLE_ENTITY` naming the graphs, so the caller can fetch them one\nat a time (#4670).",
         "operationId": "generate_environment_sbom",
         "parameters": [
           {
@@ -21289,6 +21310,30 @@
             "name": "format",
             "in": "query",
             "description": "`cyclonedx` (default) or `spdx`.",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "description": "Render only the graphs of this named environment (`pixi.lock`).",
+            "required": false,
+            "schema": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          {
+            "name": "platform",
+            "in": "query",
+            "description": "Render only the graphs of this platform / conda subdir (`linux-64`).",
             "required": false,
             "schema": {
               "type": [
@@ -21321,7 +21366,7 @@
             }
           },
           "400": {
-            "description": "Unrecognized, unhandled or unparseable lockfile",
+            "description": "Unrecognized, unhandled or unparseable lockfile, or an environment/platform filter that matches no graph",
             "content": {
               "application/json": {
                 "schema": {
@@ -21342,6 +21387,16 @@
           },
           "413": {
             "description": "Lockfile exceeds the size ceiling",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The rendered documents exceed the response size ceiling; request fewer graphs with `platform` / `environment`",
             "content": {
               "application/json": {
                 "schema": {
@@ -32026,6 +32081,13 @@
             "description": "Alias for `is_public`. When set to true, anonymous users can download\nartifacts from this repository without authentication. Useful for remote\n(pull-through cache) repositories that proxy public upstream registries.\nIf both `is_public` and `allow_anonymous_access` are provided,\n`allow_anonymous_access` takes precedence.",
             "deprecated": true
           },
+          "allow_public_with_upstream_credentials": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Accept a public repository that carries upstream credentials (#4662).\n\nA public Remote serves anonymous callers, and every upstream request it\nmakes on their behalf carries the repository's upstream credentials\n(upstream-auth, or userinfo embedded in `upstream_url`). Making a\nrepository public while it has upstream credentials, or adding\ncredentials to a public repository, is refused with 400\n`PUBLIC_REMOTE_UPSTREAM_CREDENTIALS` unless this is `true`. The choice\nis stored with the repository, so a later toggle back to public does\nnot need it again; send `false` to withdraw it. Accepting it is logged\nat WARN and recorded in the audit log."
+          },
           "apt_description": {
             "type": [
               "string",
@@ -42303,6 +42365,8 @@
           "has_trusted_gpg_key",
           "upstream_url_has_credentials",
           "upstream_auth_configured",
+          "public_with_upstream_credentials",
+          "allow_public_with_upstream_credentials",
           "curation_enabled",
           "curation_default_action",
           "created_at",
@@ -42313,6 +42377,10 @@
             "type": "boolean",
             "description": "Whether anonymous (unauthenticated) downloads are allowed. This is\nalways equal to `is_public` and provided as a convenience alias so\nthe semantics are clear for remote (pull-through cache) repositories.",
             "deprecated": true
+          },
+          "allow_public_with_upstream_credentials": {
+            "type": "boolean",
+            "description": "Whether an administrator accepted that state by sending\n`allow_public_with_upstream_credentials: true` (#4662). A repository\nthat was already public with credentials before the guardrail existed\nreports `public_with_upstream_credentials: true` with this `false`."
           },
           "apt_description": {
             "type": [
@@ -42470,6 +42538,10 @@
           "promotion_only": {
             "type": "boolean",
             "description": "When true, direct user uploads are rejected; artifacts must be promoted."
+          },
+          "public_with_upstream_credentials": {
+            "type": "boolean",
+            "description": "`true` when this repository is public AND carries upstream credentials\n(upstream-auth or userinfo in `upstream_url`), so anonymous callers\nmake it spend those credentials upstream (#4662). A UI should flag it."
           },
           "quarantine_duration_minutes": {
             "type": [
@@ -47340,6 +47412,13 @@
             "description": "Alias for `is_public`. When set to true, anonymous users can download\nartifacts without authentication. Useful for remote (pull-through cache)\nrepositories that proxy public upstream registries. Write operations\n(upload, delete) still require authentication regardless of this setting.\nIf both `is_public` and `allow_anonymous_access` are provided,\n`allow_anonymous_access` takes precedence.",
             "deprecated": true
           },
+          "allow_public_with_upstream_credentials": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Accept a public repository that carries upstream credentials (#4662).\n\nA public Remote serves anonymous callers, and every upstream request it\nmakes on their behalf carries the repository's upstream credentials\n(upstream-auth, or userinfo embedded in `upstream_url`). Making a\nrepository public while it has upstream credentials, or adding\ncredentials to a public repository, is refused with 400\n`PUBLIC_REMOTE_UPSTREAM_CREDENTIALS` unless this is `true`. The choice\nis stored with the repository, so a later toggle back to public does\nnot need it again; send `false` to withdraw it. Accepting it is logged\nat WARN and recorded in the audit log."
+          },
           "apt_description": {
             "type": [
               "string",
@@ -48021,6 +48100,13 @@
           "auth_type"
         ],
         "properties": {
+          "allow_public_with_upstream_credentials": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Accept upstream credentials on a public repository (#4662); see\n`allow_public_with_upstream_credentials` on the repository update\nrequest. Without it, configuring credentials on a public repository is\nrefused with 400 `PUBLIC_REMOTE_UPSTREAM_CREDENTIALS`."
+          },
           "auth_type": {
             "type": "string",
             "description": "Auth type: \"basic\", \"bearer\", \"aws_ecr\", \"aws_codeartifact\", or \"none\"\nto remove."
