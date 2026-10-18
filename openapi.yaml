@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.1
+  version: 1.11.2
 servers:
 - url: /
   description: Current server
@@ -4889,6 +4889,12 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '401':
           description: IdP error or invalid/expired SSO state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '502':
+          description: The IdP's token response carried no id_token (code OIDC_NO_ID_TOKEN)
           content:
             application/json:
               schema:
@@ -10840,7 +10846,7 @@ paths:
           description: Authentication required
         '403':
           description: 'Insufficient permissions: needs repository admin, plus project admin of the destination project when
-            changing project_id'
+            changing project_id, or of the current project when clearing it with null'
         '404':
           description: Repository not found
         '409':
@@ -11115,7 +11121,8 @@ paths:
           - 'null'
       responses:
         '200':
-          description: List of artifacts
+          description: List of artifacts. For a virtual repository whose members the caller cannot read although it holds
+            read on the virtual, the `X-AK-Virtual-Members-Notice` header says why (#4690)
           content:
             application/json:
               schema:
@@ -12205,7 +12212,8 @@ paths:
           type: string
       responses:
         '200':
-          description: List of virtual repository members (filtered to caller-visible members)
+          description: List of virtual repository members (filtered to caller-visible members). When the caller holds read
+            on the virtual but can read none of its members, the `X-AK-Virtual-Members-Notice` header says why (#4690)
           content:
             application/json:
               schema:
@@ -20756,9 +20764,10 @@ components:
         \ is optional in effect: empty lists and unset options mean the\npredicate is not enforced. Lists are the organisation's\
         \ own allow/deny\nvalues — the product ships the mechanism, never a seeded list.\n\nFact sources:\n\n* `allowed_channels`\
         \ / `denied_channels` — the channel of origin recorded\n  in the artifact's conda identity purl at ingest (a remote\
-        \ repo's upstream\n  URL, or the owning repository's key for a hosted upload), falling back to\n  the owning repository's\
-        \ key when no identity was recorded.\n* `denied_licenses` / `denied_license_families` — the `license` /\n  `license_family`\
-        \ keys `build_conda_metadata` persists from `about.json`.\n* `block_install_scripts` / `max_install_script_severity`\
+        \ repo's upstream\n  URL, or the owning repository's key for a hosted upload). There is\n  no fallback: when no channel\
+        \ was recorded the origin is unknown, and a\n  non-empty `allowed_channels` fails closed (the artifact is refused)\
+        \ while\n  `denied_channels` cannot match it.\n* `denied_licenses` / `denied_license_families` — the `license` /\n\
+        \  `license_family` keys `build_conda_metadata` persists from `about.json`.\n* `block_install_scripts` / `max_install_script_severity`\
         \ — the\n  `package_install_scripts` rows and their `findings` JSON (migration 222).\n* `min_attestation_state` —\
         \ the CEP-27 verification record on\n  `curation_packages.attestation_state` (`absent` = no record,\n  `present` =\
         \ a record that is unverified or failed, `verified`)."
@@ -20783,7 +20792,9 @@ components:
           type: array
           items:
             type: string
-          description: The artifact's channel of origin must not be in this set.
+          description: 'The artifact''s channel of origin must not be in this set. An unknown
+
+            origin matches no entry; restrict origin with `allowed_channels`.'
           default: []
         denied_license_families:
           type: array
@@ -24324,9 +24335,19 @@ components:
       - access_token
       - refresh_token
       - token_type
+      - expires_in
       properties:
         access_token:
           type: string
+        expires_in:
+          type: integer
+          format: int64
+          description: 'Seconds until `access_token` expires (#4648). Login sessions are
+
+            short-lived (`JWT_ACCESS_TOKEN_EXPIRY_MINUTES`, 30 by default);
+
+            automation should mint an API token instead.'
+          minimum: 0
         refresh_token:
           type: string
         token_type:
@@ -26604,6 +26625,13 @@ components:
         expires_in:
           type: integer
           format: int64
+          description: 'Seconds until `access_token` expires (`JWT_ACCESS_TOKEN_EXPIRY_MINUTES`,
+
+            30 minutes by default). Login sessions are short-lived: renew with the
+
+            refresh token, or have automation mint an API token
+
+            (`POST /api/v1/auth/tokens`) instead of logging in (#4648).'
           minimum: 0
         must_change_password:
           type: boolean
@@ -26611,6 +26639,7 @@ components:
           type: string
         token_type:
           type: string
+          description: Always `Bearer`.
         totp_enrollment_required:
           type:
           - boolean
@@ -28355,6 +28384,11 @@ components:
           type:
           - string
           - 'null'
+          description: 'Display name of the target (#4639): the repository, group or project
+
+            name, or `name@version` (the path when unversioned) for an artifact.
+
+            `null` for target types without a name and for deleted targets.'
         target_type:
           type: string
         updated_at:
@@ -35052,11 +35086,17 @@ components:
           - string
           - 'null'
           format: uuid
-          description: 'Assign this repository to a project (#2472). P1 is set-only: omitting
+          description: 'Assign this repository to a project (#2472), or take it out of one
 
-            the field leaves the assignment unchanged (unassignment ships with the
+            (#4026). Three-way semantics via `Option<Option<Uuid>>`: omit the field
 
-            project-admin surface in P2).'
+            to leave the assignment unchanged; send `null` to clear it; send a
+
+            project id to (re)assign it. Moving into a project needs project admin
+
+            on that project, clearing needs project admin on the current one (a
+
+            global admin or system repository admin may do either).'
         promotion_only:
           type:
           - boolean
