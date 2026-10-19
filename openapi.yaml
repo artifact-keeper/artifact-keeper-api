@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.2
+  version: 1.11.3
 servers:
 - url: /
   description: Current server
@@ -34882,8 +34882,6 @@ components:
           description: 'Global admin only: a project admin sending this field gets 403.'
     UpdateRepositoryRequest:
       type: object
-      required:
-      - curation_default_action
       properties:
         allow_anonymous_access:
           type:
@@ -34973,7 +34971,9 @@ components:
 
             unchanged.'
         curation_default_action:
-          type: string
+          type:
+          - string
+          - 'null'
           description: 'Default curation action when no rule matches: allow or review.
 
             "block" is rejected (DB CHECK, migration 071); use block rules for

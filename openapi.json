@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.11.2"
+    "version": "1.11.3"
   },
   "servers": [
     {
@@ -47420,9 +47420,6 @@
       },
       "UpdateRepositoryRequest": {
         "type": "object",
-        "required": [
-          "curation_default_action"
-        ],
         "properties": {
           "allow_anonymous_access": {
             "type": [
@@ -47475,7 +47472,10 @@
             "description": "Update the keyless-sync unverified-ingest opt-in (#2569). When provided,\nsets `curation_allow_unverified` (`false` restores the fail-closed\ndefault; `true` opts into legacy unverified ingest). Omit to leave it\nunchanged."
           },
           "curation_default_action": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "description": "Default curation action when no rule matches: allow or review.\n\"block\" is rejected (DB CHECK, migration 071); use block rules for\nspecific packages instead.\n\nThe allowed set is spelled out in the schema so a generated SDK presents it\nrather than an unconstrained string.",
             "example": "allow"
           },
