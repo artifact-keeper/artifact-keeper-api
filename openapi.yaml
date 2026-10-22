@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.3
+  version: 1.11.4
 servers:
 - url: /
   description: Current server
@@ -11266,6 +11266,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: 'An artifact already exists at this path and is immutable. The body is `{"code": "CONFLICT", "message":
+            "Artifact version already exists and is immutable"}`. Delete the artifact first, or enable versioning on the repository
+            (Generic and Mlmodel) to append a revision instead. Of several concurrent uploads to one free path exactly one
+            is answered 201; the others get this 409 (#4832).'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
     delete:
@@ -16216,9 +16225,9 @@ paths:
             body to tell them apart. (1) Checksum mismatch: the assembled file''s SHA-256 differs from the checksum declared
             when the session was created. The body is `{"error": "checksum mismatch: expected <sha256>, got <sha256>"}`; the
             session is failed, so re-upload in a new session. (2) Immutable path occupied (#3924): an artifact already exists
-            at this path and may not be overwritten. The body is `{"code": "CONFLICT", "message": "Artifact version already
-            exists and is immutable"}`; no bytes are written and the session stays open, so this request can be repeated once
-            the occupying artifact is deleted.'
+            at this path and may not be overwritten, including one committed by a concurrent upload to the same path (#4832).
+            The body is `{"code": "CONFLICT", "message": "Artifact version already exists and is immutable"}`; no bytes are
+            written and the session stays open, so this request can be repeated once the occupying artifact is deleted.'
           content:
             application/json:
               schema:
