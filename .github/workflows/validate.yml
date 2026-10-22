@@ -56,7 +56,7 @@ jobs:
       - name: Check for breaking changes
         if: steps.prev-spec.outputs.has_previous == 'true'
         continue-on-error: true
-        uses: oasdiff/oasdiff-action/breaking@1c611ffb1253a72924624aa4fb662e302b3565d3 # v0.0.21
+        uses: oasdiff/oasdiff-action/breaking@2649ebe137aeb72a95707671204e829f86e091fc # v0.1.13
         with:
           base: openapi-previous.yaml
           revision: openapi.yaml
