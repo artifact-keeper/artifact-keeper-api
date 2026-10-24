@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.6
+  version: 1.11.7
 servers:
 - url: /
   description: Current server
@@ -8361,6 +8361,10 @@ paths:
       responses:
         '200':
           description: Network profile updated
+        '400':
+          description: Invalid peer ID or network profile
+        '404':
+          description: Peer instance not found
       security:
       - bearer_auth: []
   /api/v1/peers/{id}/repositories:
