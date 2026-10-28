@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.11.7"
+    "version": "1.11.8"
   },
   "servers": [
     {
@@ -19959,7 +19959,7 @@
             }
           },
           "503": {
-            "description": "Rescan could not produce a verdict: `NO_SCANNER_CONFIGURED` (no scanner is configured for this instance), `RESCAN_SCAN_FAILED` (the scan ran and errored), or `RESCAN_BUDGET_EXCEEDED` (the scan did not finish inside its budget). `Retry-After` is set only when cooldown time actually remains. The stored verdict is unchanged in every case.",
+            "description": "Rescan could not produce a verdict: `NO_SCANNER_CONFIGURED` (no scanner is configured for this instance), `RESCAN_SCAN_FAILED` (the scan ran and errored, cataloged nothing gradeable in an object it could not pin, or cataloged fewer components than a stored vulnerable verdict was graded on), or `RESCAN_BUDGET_EXCEEDED` (the scan did not finish inside its budget). `Retry-After` is set only when cooldown time actually remains. The stored verdict is unchanged in every case.",
             "content": {
               "application/json": {
                 "schema": {
