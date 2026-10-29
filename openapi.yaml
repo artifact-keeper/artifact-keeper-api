@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.8
+  version: 1.11.9
 servers:
 - url: /
   description: Current server
@@ -10939,17 +10939,25 @@ paths:
       tags:
       - repositories
       summary: Set the package allowlist of a virtual conda repository
-      description: 'Restricts what the virtual''s REMOTE members contribute. When `enabled`,
+      description: 'Restricts what the virtual channel serves. When `enabled`, a package
 
-        a remote package record is listed in the virtual''s `repodata.json` (every
+        record is listed in the virtual''s index (`repodata.json` in every
 
-        encoding) only if some entry admits it, `channeldata.json` keeps only
+        encoding, the CEP-16 shard index, `current_repodata.json`,
 
-        admitted names, and a download through the virtual of a package the list
+        `run_exports.json`) only if some entry admits it, `channeldata.json` keeps
 
-        does not admit is never served from a remote member (404, as the index
+        only admitted names, and a download through the virtual of a package the
 
-        implies). Hosted (local/staging) members are not filtered.
+        list does not admit is a 404, as the index implies. `scope` selects the
+
+        members filtered: `all_members` (the default: hosted and remote) or
+
+        `remote_only` (hosted local/staging members pass through unfiltered, the
+
+        behaviour before #5055). A request that omits `scope` keeps the scope
+
+        already stored. Reads of a member repository itself are never filtered.
 
 
         An entry is `{"name": ..., "version": ..., "subdirs": [...]}`: `name` is an
@@ -10965,9 +10973,11 @@ paths:
         entry to platforms. A package is admitted when any entry admits it.
 
 
-        `enabled` is required: an enabled empty list admits nothing from remotes;
+        `enabled` is required: an enabled empty list admits nothing from the
 
-        `enabled: false` keeps the entries but restores the unfiltered merge.
+        members in scope; `enabled: false` keeps the entries but restores the
+
+        unfiltered merge.
 
         Limits: 10,000 entries, names up to 128 bytes, version specs up to 256
 
@@ -17916,6 +17926,12 @@ components:
 
             Omitted: every version.'
       additionalProperties: false
+    AllowlistScope:
+      type: string
+      description: Which members of the virtual a [`CondaAllowlist`] applies to (#5055).
+      enum:
+      - all_members
+      - remote_only
     AlreadyPresentResponse:
       type: object
       description: 'Returned by `POST /api/v1/uploads` (status 200, no session opened) when
@@ -20730,18 +20746,26 @@ components:
           type: boolean
           description: 'Whether the list is enforced. Required: an enabled empty list admits
 
-            nothing from remote members.'
+            nothing from the members it applies to.'
         entries:
           type: array
           items:
             $ref: '#/components/schemas/AllowlistEntry'
           description: The admitted packages.
+        scope:
+          oneOf:
+          - type: 'null'
+          - $ref: '#/components/schemas/AllowlistScope'
+            description: 'Which members the list applies to. Omitted: `all_members` for a new
+
+              list; on `PUT`, the scope already stored is kept.'
       additionalProperties: false
     CondaAllowlistResponse:
       type: object
       required:
       - repository_key
       - enabled
+      - scope
       - entries
       - entry_count
       properties:
@@ -20767,11 +20791,16 @@ components:
           - 'null'
           description: 'Set when the stored list is unusable (only possible after a direct
 
-            database edit): nothing from remote members is admitted until a valid
+            database edit): nothing is admitted from the members it applies to
 
-            list is saved or the list is deleted.'
+            until a valid list is saved or the list is deleted.'
         repository_key:
           type: string
+        scope:
+          $ref: '#/components/schemas/AllowlistScope'
+          description: 'Which members the list applies to: `all_members` (the default) or
+
+            `remote_only` (#5055).'
     CondaPolicyPredicates:
       type: object
       description: "Conda-specific policy predicates over the facts the #4033 content epic\npersists (#4058).\n\nEvery field\
