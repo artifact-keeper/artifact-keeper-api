@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.9
+  version: 1.11.10
 servers:
 - url: /
   description: Current server
@@ -13112,7 +13112,7 @@ paths:
         '200':
           description: Upstream reachable
         '400':
-          description: Repository is not remote or has no upstream URL
+          description: Repository is not remote, has no upstream URL, or its upstream URL is not allowed
         '401':
           description: Authentication required
         '404':

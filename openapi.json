@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.11.9"
+    "version": "1.11.10"
   },
   "servers": [
     {
@@ -20291,7 +20291,7 @@
             "description": "Upstream reachable"
           },
           "400": {
-            "description": "Repository is not remote or has no upstream URL"
+            "description": "Repository is not remote, has no upstream URL, or its upstream URL is not allowed"
           },
           "401": {
             "description": "Authentication required"
