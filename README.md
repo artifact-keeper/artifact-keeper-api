@@ -1,5 +1,9 @@
 # Artifact Keeper API
 
+<p align="center">
+  <img alt="Artifact Keeper" src="https://raw.githubusercontent.com/artifact-keeper/.github/main/brand/banners/github-readme_1600x600.png" width="100%">
+</p>
+
 OpenAPI 3.1 specification for the Artifact Keeper management REST API.
 
 > **Note:** This spec is **auto-generated** from the Rust backend's utoipa annotations.
