@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.11.11"
+    "version": "1.11.12"
   },
   "servers": [
     {
@@ -13124,7 +13124,7 @@
             "description": "Repository assigned successfully"
           },
           "400": {
-            "description": "Invalid replication_mode"
+            "description": "Invalid replication_mode, or `pull`, which is not implemented"
           },
           "404": {
             "description": "Peer instance or repository not found"
@@ -17351,7 +17351,7 @@
           {
             "name": "count",
             "in": "query",
-            "description": "Total-count mode for keyset-paged listings (#2520, #2519).\n`count=exact` runs a dedicated COUNT query so `pagination.total` is\nexact; otherwise the keyset-paged listings report a cheap lower bound\n(rows seen so far, +1 when another page exists) and `has_more` is the\nauthoritative \"is there a next page\" signal.",
+            "description": "Total-count mode for keyset-paged listings (#2520, #2519, #5255).\n`count=exact` runs a dedicated COUNT query so `pagination.total` is\nexact. `count=lower_bound` skips it: `pagination.total` is then exact\nonly on the last page reached by `page=N` (and on an empty page, which\nalways counts), and otherwise a lower bound (rows seen so far, +1 when\nanother page exists). Without the parameter, the flat listings\n(hosted, virtual, remote) are exact on `page=N` requests and\n`lower_bound` on `cursor` requests, and the grouped listings\n(`group_by`) are `lower_bound`.\nThe response's `total_is_exact` says which one you got; `has_more` is\nthe authoritative \"is there a next page\" signal either way, so walk\npages until it is false rather than up to a lower-bound `total_pages`.",
             "required": false,
             "schema": {
               "type": [
@@ -23605,7 +23605,7 @@
             }
           },
           "409": {
-            "description": "Repository has no active signing key/config",
+            "description": "Repository cannot sign artifacts: no signing config, no active key, or sign_packages disabled",
             "content": {
               "application/json": {
                 "schema": {
@@ -24099,6 +24099,16 @@
               }
             }
           },
+          "400": {
+            "description": "The key cannot sign this repository's metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -24110,7 +24120,7 @@
             }
           },
           "404": {
-            "description": "Repository not found",
+            "description": "Repository or signing key not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -27817,6 +27827,13 @@
           },
           "pagination": {
             "$ref": "#/components/schemas/Pagination"
+          },
+          "total_is_exact": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Whether `pagination.total` and `pagination.total_pages` are exact\n(#5255). `false` means they are a lower bound (the rows seen so far,\n+1 when another page exists): page with `has_more` / `next_cursor`\nuntil `has_more` is false, or pass `?count=exact`, instead of looping\nto `total_pages`. Set on every artifact listing; absent only from\nservers older than this field."
           }
         }
       },
@@ -28235,7 +28252,8 @@
             "type": [
               "string",
               "null"
-            ]
+            ],
+            "description": "`push` (the default) or `mirror`, which both send each new artifact\nto the peer as it is uploaded, or `none` (assigned, not replicated).\n`pull` is refused with 400: it is not implemented and never created a\nsync task (#5293)."
           },
           "replication_schedule": {
             "type": [
@@ -32173,6 +32191,21 @@
             ],
             "description": "Opt into ingesting UNVERIFIED upstream metadata on the keyless RPM\ncuration-sync path (#2569). Omit or `false` to keep the fail-closed\ndefault (a keyless curation sync refuses to ingest unverified upstream\npackages); `true` reverts to the legacy unverified-ingest behavior. Only\nmeaningful for RPM curation staging repositories."
           },
+          "curation_default_action": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Not settable on create (#5324): set it with\n`PATCH /api/v1/repositories/{key}` after creating the repository.\nAnything other than `allow` (the default) is refused with 400 rather\nthan ignored.",
+            "example": "allow"
+          },
+          "curation_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Not settable on create (#5324): enable curation with\n`PATCH /api/v1/repositories/{key}` after creating the repository.\n`true` is refused with 400 rather than ignored; `false` (the default)\nis accepted."
+          },
           "custom_user_agent": {
             "type": [
               "string",
@@ -32303,12 +32336,34 @@
             ],
             "description": "Override the PyPI simple-index prefix for upstreams that do not follow\nthe standard PEP 503 `/simple/` layout (issue #1546).\n\n- Omit or `\"simple\"` — standard PEP 503 (pypi.org, devpi, Nexus). Default.\n- `\"\"` (empty) — flat CDN (e.g. `https://download.pytorch.org/whl/cpu`):\n  package files are served directly under the upstream root with no prefix.\n- Any other non-empty string — custom index prefix.\n\nStored in `repository_config` under `pypi_upstream_index_path`.\nOnly meaningful for PyPI / Poetry / Jupyter / Conda Remote repositories."
           },
+          "quarantine_duration_minutes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "description": "Quarantine hold duration in minutes (#5324). Must be non-negative.\nStored in `repository_config` under `quarantine_duration_minutes`."
+          },
+          "quarantine_enabled": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Enable the upload-time quarantine period (Package Age Policy) from the\nfirst upload (#5324). Same rules as on update: enabling is refused\n(400) on a Virtual repository, which has no cache of its own. Stored\nin `repository_config` under `quarantine_enabled`."
+          },
           "quota_bytes": {
             "type": [
               "integer",
               "null"
             ],
             "format": "int64"
+          },
+          "release_repository_key": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Not settable on create (#5324): link a staging repository to its\nrelease repository after creating it, with\n`PATCH /api/v1/repositories/{key}` or\n`PUT /api/v1/repositories/{key}/release-target`. A non-empty value is\nrefused with 400 rather than ignored."
           },
           "repo_type": {
             "type": "string",
@@ -32368,6 +32423,13 @@
               "null"
             ],
             "description": "Opt this repository into first-class artifact versioning (#2367):\nuploads to Generic/Mlmodel repos append immutable revisions instead\nof overwriting. Defaults to false (current behavior preserved)."
+          },
+          "virtual_metadata_partial": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Virtual repositories only: serve a partial metadata merge instead of\na 502 when a member fails (#4192); see\n`UpdateRepositoryRequest.virtual_metadata_partial`. Refused (400) on\nany other repository type."
           },
           "visibility": {
             "oneOf": [
@@ -37497,7 +37559,7 @@
               "string",
               "null"
             ],
-            "description": "Total-count mode for keyset-paged listings (#2520, #2519).\n`count=exact` runs a dedicated COUNT query so `pagination.total` is\nexact; otherwise the keyset-paged listings report a cheap lower bound\n(rows seen so far, +1 when another page exists) and `has_more` is the\nauthoritative \"is there a next page\" signal."
+            "description": "Total-count mode for keyset-paged listings (#2520, #2519, #5255).\n`count=exact` runs a dedicated COUNT query so `pagination.total` is\nexact. `count=lower_bound` skips it: `pagination.total` is then exact\nonly on the last page reached by `page=N` (and on an empty page, which\nalways counts), and otherwise a lower bound (rows seen so far, +1 when\nanother page exists). Without the parameter, the flat listings\n(hosted, virtual, remote) are exact on `page=N` requests and\n`lower_bound` on `cursor` requests, and the grouped listings\n(`group_by`) are `lower_bound`.\nThe response's `total_is_exact` says which one you got; `has_more` is\nthe authoritative \"is there a next page\" signal either way, so walk\npages until it is false rather than up to a lower-bound `total_pages`."
           },
           "cursor": {
             "type": [
@@ -45481,12 +45543,18 @@
           "repository_id",
           "sync_enabled",
           "replication_filter",
-          "created_at"
+          "created_at",
+          "effective"
         ],
         "properties": {
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "effective": {
+            "type": "string",
+            "description": "`active` when the subscription is enabled and its mode is replicated\n(`push` or `mirror`); `inactive` otherwise, including a `pull`\nsubscription stored before `pull` was refused, which never replicated\nanything (#5293).",
+            "example": "active"
           },
           "id": {
             "type": "string",
