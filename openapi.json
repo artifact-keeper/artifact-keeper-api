@@ -11,7 +11,7 @@
       "name": "MIT",
       "url": "https://opensource.org/licenses/MIT"
     },
-    "version": "1.11.13"
+    "version": "1.11.14"
   },
   "servers": [
     {
@@ -24535,6 +24535,35 @@
         }
       }
     },
+    "/api/v1/system/quota": {
+      "get": {
+        "tags": [
+          "system"
+        ],
+        "summary": "Instance quota usage: storage, this month's download transfer, the upload\nsize limit and the help link. Any authenticated user may read it, so the\nweb UI can warn every user before an upload or a download is refused; an\nanonymous caller gets `401` (and, with guest access disabled, the guest\nguard answers before this handler runs).",
+        "operationId": "get_system_quota",
+        "responses": {
+          "200": {
+            "description": "Instance quota usage",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QuotaOverview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/tree": {
       "get": {
         "tags": [
@@ -35050,6 +35079,20 @@
           },
           "token_type": {
             "type": "string"
+          },
+          "totp_required": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "Present (and `true`) when the account has TOTP enrolled (#5484): the\ncode carried no session. `access_token` and `refresh_token` are empty\nand `totp_token` is redeemed at `POST /api/v1/auth/totp/verify`, as\nafter `POST /api/v1/auth/login`."
+          },
+          "totp_token": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Single-use TOTP pending token; see `totp_required`."
           }
         }
       },
@@ -41771,6 +41814,36 @@
           }
         }
       },
+      "QuotaOverview": {
+        "type": "object",
+        "description": "The quota figures `GET /api/v1/system/quota` answers and\n`GET /api/v1/admin/stats` embeds.",
+        "required": [
+          "storage_quota",
+          "transfer_quota",
+          "max_upload_bytes"
+        ],
+        "properties": {
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`MAX_UPLOAD_SIZE` in bytes; `0` means no limit.",
+            "minimum": 0
+          },
+          "quota_help_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`QUOTA_HELP_URL`, when configured."
+          },
+          "storage_quota": {
+            "$ref": "#/components/schemas/StorageQuotaStatus"
+          },
+          "transfer_quota": {
+            "$ref": "#/components/schemas/TransferQuotaStatus"
+          }
+        }
+      },
       "ReEvaluateRequest": {
         "type": "object",
         "required": [
@@ -45235,6 +45308,49 @@
           }
         }
       },
+      "StorageQuotaStatus": {
+        "type": "object",
+        "description": "The `storage_quota` object of `GET /api/v1/system/quota`.",
+        "required": [
+          "enabled",
+          "used_bytes",
+          "warn_percent",
+          "state"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "percent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "quota_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/StorageState"
+          },
+          "used_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "warn_percent": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "StorageReindexRequest": {
         "type": "object",
         "description": "Request body for a storage reindex. `dry_run` is required and unknown\nfields are rejected (the #3501 contract for write-capable admin calls).",
@@ -45433,6 +45549,15 @@
             "format": "int64"
           }
         }
+      },
+      "StorageState": {
+        "type": "string",
+        "description": "`ok`, `warning` (at or above the warning threshold) or `exceeded` (at or\nabove the quota).",
+        "enum": [
+          "ok",
+          "warning",
+          "exceeded"
+        ]
       },
       "StorageTreeNode": {
         "type": "object",
@@ -45936,12 +46061,21 @@
           "active_peers",
           "pending_sync_tasks",
           "proxy_artifact_count",
-          "proxy_storage_bytes"
+          "proxy_storage_bytes",
+          "storage_quota",
+          "transfer_quota",
+          "max_upload_bytes"
         ],
         "properties": {
           "active_peers": {
             "type": "integer",
             "format": "int64"
+          },
+          "max_upload_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "`MAX_UPLOAD_SIZE` in bytes (`0` = no limit).",
+            "minimum": 0
           },
           "pending_sync_tasks": {
             "type": "integer",
@@ -45961,6 +46095,17 @@
             "type": "integer",
             "format": "int64",
             "description": "Bytes held by proxy-cached objects. Since #3134 this is a **breakdown\nof** `total_storage_bytes`, not a disjoint bucket: the ledger's\n`proxy_bytes` component is already inside that total, so a dashboard\nthat adds the two double-counts the cache (#3650). The count above and\nthe bytes here therefore do NOT compose the same way — only the count\nis disjoint."
+          },
+          "quota_help_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "`QUOTA_HELP_URL`, when configured."
+          },
+          "storage_quota": {
+            "$ref": "#/components/schemas/StorageQuotaStatus",
+            "description": "The instance storage quota against `total_storage_bytes`\n(`STORAGE_QUOTA_BYTES`; `enabled: false` when unset)."
           },
           "total_artifacts": {
             "type": "integer",
@@ -45984,6 +46129,10 @@
           "total_users": {
             "type": "integer",
             "format": "int64"
+          },
+          "transfer_quota": {
+            "$ref": "#/components/schemas/TransferQuotaStatus",
+            "description": "This month's download transfer against `TRANSFER_QUOTA_BYTES`."
           }
         }
       },
@@ -46500,6 +46649,73 @@
           }
         }
       },
+      "TransferQuotaStatus": {
+        "type": "object",
+        "description": "The `transfer_quota` object of `GET /api/v1/system/quota`.",
+        "required": [
+          "enabled",
+          "used_bytes",
+          "warn_percent",
+          "grace_percent",
+          "state",
+          "period_start",
+          "period_end"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "grace_percent": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          },
+          "hard_limit_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "percent": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "format": "double"
+          },
+          "period_end": {
+            "type": "string",
+            "description": "End of the current period, the start of the next (RFC 3339, UTC)."
+          },
+          "period_start": {
+            "type": "string",
+            "description": "Start of the current period (RFC 3339, UTC)."
+          },
+          "quota_bytes": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int64",
+            "minimum": 0
+          },
+          "state": {
+            "$ref": "#/components/schemas/TransferState"
+          },
+          "used_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "warn_percent": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 0
+          }
+        }
+      },
       "TransferSessionResponse": {
         "type": "object",
         "required": [
@@ -46553,6 +46769,16 @@
             "format": "int64"
           }
         }
+      },
+      "TransferState": {
+        "type": "string",
+        "description": "`ok`, `warning` (at or above the warning threshold), `over` (at or above\nthe quota, inside the grace band, still serving) or `refusing` (at the\nhard limit).",
+        "enum": [
+          "ok",
+          "warning",
+          "over",
+          "refusing"
+        ]
       },
       "TrashPage": {
         "type": "object",

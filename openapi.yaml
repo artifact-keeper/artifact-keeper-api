@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.11.13
+  version: 1.11.14
 servers:
 - url: /
   description: Current server
@@ -15958,6 +15958,31 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SystemConfigResponse'
+  /api/v1/system/quota:
+    get:
+      tags:
+      - system
+      summary: 'Instance quota usage: storage, this month''s download transfer, the upload
+
+        size limit and the help link. Any authenticated user may read it, so the
+
+        web UI can warn every user before an upload or a download is refused; an
+
+        anonymous caller gets `401` (and, with guest access disabled, the guest
+
+        guard answers before this handler runs).'
+      operationId: get_system_quota
+      responses:
+        '200':
+          description: Instance quota usage
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuotaOverview'
+        '401':
+          description: Authentication required
+      security:
+      - bearer_auth: []
   /api/v1/tree:
     get:
       tags:
@@ -24503,6 +24528,22 @@ components:
           type: string
         token_type:
           type: string
+        totp_required:
+          type:
+          - boolean
+          - 'null'
+          description: 'Present (and `true`) when the account has TOTP enrolled (#5484): the
+
+            code carried no session. `access_token` and `refresh_token` are empty
+
+            and `totp_token` is redeemed at `POST /api/v1/auth/totp/verify`, as
+
+            after `POST /api/v1/auth/login`.'
+        totp_token:
+          type:
+          - string
+          - 'null'
+          description: Single-use TOTP pending token; see `totp_required`.
     ExternalFindingInput:
       type: object
       description: 'One finding as an external scanner reports it.
@@ -30033,6 +30074,30 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SearchResultItem'
+    QuotaOverview:
+      type: object
+      description: 'The quota figures `GET /api/v1/system/quota` answers and
+
+        `GET /api/v1/admin/stats` embeds.'
+      required:
+      - storage_quota
+      - transfer_quota
+      - max_upload_bytes
+      properties:
+        max_upload_bytes:
+          type: integer
+          format: int64
+          description: '`MAX_UPLOAD_SIZE` in bytes; `0` means no limit.'
+          minimum: 0
+        quota_help_url:
+          type:
+          - string
+          - 'null'
+          description: '`QUOTA_HELP_URL`, when configured.'
+        storage_quota:
+          $ref: '#/components/schemas/StorageQuotaStatus'
+        transfer_quota:
+          $ref: '#/components/schemas/TransferQuotaStatus'
     ReEvaluateRequest:
       type: object
       required:
@@ -33081,6 +33146,38 @@ components:
         storage_keys_deleted:
           type: integer
           format: int64
+    StorageQuotaStatus:
+      type: object
+      description: The `storage_quota` object of `GET /api/v1/system/quota`.
+      required:
+      - enabled
+      - used_bytes
+      - warn_percent
+      - state
+      properties:
+        enabled:
+          type: boolean
+        percent:
+          type:
+          - number
+          - 'null'
+          format: double
+        quota_bytes:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+        state:
+          $ref: '#/components/schemas/StorageState'
+        used_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        warn_percent:
+          type: integer
+          format: int32
+          minimum: 0
     StorageReindexRequest:
       type: object
       description: 'Request body for a storage reindex. `dry_run` is required and unknown
@@ -33304,6 +33401,15 @@ components:
         total_users:
           type: integer
           format: int64
+    StorageState:
+      type: string
+      description: '`ok`, `warning` (at or above the warning threshold) or `exceeded` (at or
+
+        above the quota).'
+      enum:
+      - ok
+      - warning
+      - exceeded
     StorageTreeNode:
       type: object
       description: One folder node in the per-prefix storage rollup (#2601).
@@ -33736,10 +33842,18 @@ components:
       - pending_sync_tasks
       - proxy_artifact_count
       - proxy_storage_bytes
+      - storage_quota
+      - transfer_quota
+      - max_upload_bytes
       properties:
         active_peers:
           type: integer
           format: int64
+        max_upload_bytes:
+          type: integer
+          format: int64
+          description: '`MAX_UPLOAD_SIZE` in bytes (`0` = no limit).'
+          minimum: 0
         pending_sync_tasks:
           type: integer
           format: int64
@@ -33773,6 +33887,16 @@ components:
             the bytes here therefore do NOT compose the same way — only the count
 
             is disjoint.'
+        quota_help_url:
+          type:
+          - string
+          - 'null'
+          description: '`QUOTA_HELP_URL`, when configured.'
+        storage_quota:
+          $ref: '#/components/schemas/StorageQuotaStatus'
+          description: 'The instance storage quota against `total_storage_bytes`
+
+            (`STORAGE_QUOTA_BYTES`; `enabled: false` when unset).'
         total_artifacts:
           type: integer
           format: int64
@@ -33815,6 +33939,9 @@ components:
         total_users:
           type: integer
           format: int64
+        transfer_quota:
+          $ref: '#/components/schemas/TransferQuotaStatus'
+          description: This month's download transfer against `TRANSFER_QUOTA_BYTES`.
     TelemetrySettings:
       type: object
       description: Telemetry configuration.
@@ -34216,6 +34343,57 @@ components:
           type: string
         totp_token:
           type: string
+    TransferQuotaStatus:
+      type: object
+      description: The `transfer_quota` object of `GET /api/v1/system/quota`.
+      required:
+      - enabled
+      - used_bytes
+      - warn_percent
+      - grace_percent
+      - state
+      - period_start
+      - period_end
+      properties:
+        enabled:
+          type: boolean
+        grace_percent:
+          type: integer
+          format: int32
+          minimum: 0
+        hard_limit_bytes:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+        percent:
+          type:
+          - number
+          - 'null'
+          format: double
+        period_end:
+          type: string
+          description: End of the current period, the start of the next (RFC 3339, UTC).
+        period_start:
+          type: string
+          description: Start of the current period (RFC 3339, UTC).
+        quota_bytes:
+          type:
+          - integer
+          - 'null'
+          format: int64
+          minimum: 0
+        state:
+          $ref: '#/components/schemas/TransferState'
+        used_bytes:
+          type: integer
+          format: int64
+          minimum: 0
+        warn_percent:
+          type: integer
+          format: int32
+          minimum: 0
     TransferSessionResponse:
       type: object
       required:
@@ -34257,6 +34435,18 @@ components:
         total_size:
           type: integer
           format: int64
+    TransferState:
+      type: string
+      description: '`ok`, `warning` (at or above the warning threshold), `over` (at or above
+
+        the quota, inside the grace band, still serving) or `refusing` (at the
+
+        hard limit).'
+      enum:
+      - ok
+      - warning
+      - over
+      - refusing
     TrashPage:
       type: object
       description: One page of the trash listing.
