@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.12.1
+  version: 1.12.2
 servers:
 - url: /
   description: Current server
@@ -11926,7 +11926,8 @@ paths:
           description: Authentication required
         '403':
           description: 'Insufficient permissions: needs repository admin, plus project admin of the destination project when
-            changing project_id, or of the current project when clearing it with null'
+            changing project_id, or of the current project when clearing it with null, and admin (or project admin of the
+            project the repository ends up in) to change the key'
         '404':
           description: Repository not found
         '409':
