@@ -27,7 +27,7 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.12.3
+  version: 1.12.4
 servers:
 - url: /
   description: Current server
@@ -11707,6 +11707,14 @@ paths:
         schema:
           type: string
           format: uuid
+      requestBody:
+        description: Optional; an empty body releases the row as it reads now
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - type: 'null'
+              - $ref: '#/components/schemas/ReleaseRequest'
       responses:
         '200':
           description: Artifact released
@@ -11714,6 +11722,8 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/QuarantineActionResponse'
+        '400':
+          description: Malformed request body or expected_digest
         '401':
           description: Authentication required
         '403':
@@ -19291,8 +19301,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTokenCreatedResponse'
+        '400':
+          description: Unknown field, invalid scope, or a repo_selector that does not restrict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Requested scopes require administrator privileges
+          description: Requested scopes require administrator privileges, or a scope or repo_selector exceeds what the presenting
+            credential may delegate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
   /api/v1/users/me/tokens/{token_id}:
@@ -19705,8 +19732,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiTokenCreatedResponse'
+        '400':
+          description: Unknown field, invalid scope, or a repo_selector that does not restrict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '403':
-          description: Cannot create tokens for other users
+          description: Cannot create tokens for other users, or a scope or repo_selector exceeds what the presenting credential
+            may delegate
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       security:
       - bearer_auth: []
   /api/v1/users/{id}/tokens/{token_id}:
@@ -25377,13 +25421,17 @@ components:
 
             Same shape and storage as a service-account token''s `repo_selector`:
 
-            it is resolved at authentication time, so a repository created later
+            it is resolved at authentication time and only narrows the owner''s own
 
-            that matches is picked up, and it only narrows the owner''s own
+            repository permissions, never widens them. A repository created later
 
-            repository permissions, never widens them. Omit it for a token with the
+            that matches is picked up once the token''s cached authentication
 
-            owner''s full access; a selector with no criteria is refused.'
+            expires, up to 5 minutes after the repository was created (#5643).
+
+            Omit it for a token with the owner''s full access; a selector with no
+
+            criteria is refused.'
         scopes:
           type: array
           items:
@@ -27145,11 +27193,11 @@ components:
           type: string
     CreateUserApiTokenRequest:
       type: object
-      description: 'Unknown fields are refused (400) rather than dropped (#4226): this endpoint
+      description: 'Unknown fields are refused (400) rather than dropped (#4226), so a client
 
-        takes no repository restriction, and a client sending one must learn that
+        that misspells a restriction learns that instead of receiving a broader
 
-        instead of receiving a broader token than it asked for.'
+        token than it asked for.'
       required:
       - name
       - scopes
@@ -27161,6 +27209,25 @@ components:
           format: int64
         name:
           type: string
+        repo_selector:
+          type:
+          - object
+          - 'null'
+          description: 'Restrict the token to the repositories this selector matches, as on
+
+            `POST /api/v1/auth/tokens` (#5643, #4219): the same shape and storage
+
+            as a service-account token''s `repo_selector`, resolved when the token
+
+            authenticates. It only narrows the owner''s own repository permissions,
+
+            never widens them. Omit it for a token with the owner''s full access; a
+
+            selector with no criteria is refused. A repository created later that
+
+            matches is picked up once the token''s cached authentication expires
+
+            (up to 5 minutes).'
         scopes:
           type: array
           items:
@@ -35865,6 +35932,22 @@ components:
           description: 'Logical path of the cached object within the repository (the proxy
 
             cache''s canonical path, e.g. `simple/click/click-8.0.0-py3-none-any.whl`).'
+    ReleaseRequest:
+      type: object
+      properties:
+        expected_digest:
+          type:
+          - string
+          - 'null'
+          description: 'OCI images (#5766): the manifest digest (`sha256:<hex>`) the release
+
+            was decided for. When the tag row now names another image, that
+
+            digest''s held row is released instead and the response names both;
+
+            the new image''s hold is left in place. Defaults to the digest the row
+
+            names when the request is handled.'
     ReleaseTargetResponse:
       type: object
       required:
